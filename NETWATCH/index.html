@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NETWATCH — Network Intelligence &amp; Monitoring Platform</title>
+  <meta name="description" content="Browser-based real-time network intelligence, latency monitoring, speed testing, diagnostics, and analytics platform." />
+  <link rel="icon" type="image/svg+xml" href="assets/icons/netwatch-logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body class="app-shell">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Collapsible Sidebar -->
+  <aside id="sidebar" class="sidebar" aria-label="Primary navigation">
+    <div class="sidebar-header">
+      <div class="brand">
+        <img src="assets/icons/netwatch-logo.svg" alt="" class="brand-logo" width="28" height="28" />
+        <div class="brand-text">
+          <span class="brand-name">NETWATCH</span>
+          <span class="brand-sub">NOC INTELLIGENCE</span>
+        </div>
+      </div>
+      <button id="sidebar-collapse-btn" class="icon-btn" type="button" aria-label="Toggle sidebar" aria-expanded="true" title="Toggle sidebar ([)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Sections">
+      <button class="nav-item is-active" data-view="overview" type="button" aria-current="page">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+        <span class="nav-label">Overview</span>
+        <span class="nav-kbd">1</span>
+      </button>
+
+      <button class="nav-item" data-view="speedtest" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M12 20a8 8 0 1 0-8-8" /><path d="M12 12l4-4" /><circle cx="12" cy="12" r="1.5" />
+          <path d="M4.9 19.1L7 17" />
+        </svg>
+        <span class="nav-label">Speed Test</span>
+        <span class="nav-kbd">2</span>
+      </button>
+
+      <button class="nav-item" data-view="latency" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        <span class="nav-label">Latency &amp; Stability</span>
+        <span class="nav-kbd">3</span>
+      </button>
+
+      <button class="nav-item" data-view="topology" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="5" r="2.5" /><circle cx="5" cy="19" r="2.5" /><circle cx="19" cy="19" r="2.5" />
+          <path d="M10.5 7.2L6.5 16.8M13.5 7.2l4 9.6M7.5 19h9" />
+        </svg>
+        <span class="nav-label">Network Map</span>
+        <span class="nav-kbd">4</span>
+      </button>
+
+      <button class="nav-item" data-view="diagnostics" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+        </svg>
+        <span class="nav-label">Diagnostics</span>
+        <span class="nav-kbd">5</span>
+      </button>
+
+      <button class="nav-item" data-view="analytics" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M3 3v18h18" /><path d="M7 15l4-4 4 3 5-7" />
+        </svg>
+        <span class="nav-label">Analytics</span>
+        <span class="nav-kbd">6</span>
+      </button>
+
+      <button class="nav-item" data-view="alerts" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        <span class="nav-label">Alerts</span>
+        <span id="sidebar-alert-badge" class="nav-badge hidden">0</span>
+      </button>
+
+      <button class="nav-item" data-view="settings" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        <span class="nav-label">Settings</span>
+        <span class="nav-kbd">8</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="capability-note" title="Browser security sandboxes prevent raw ICMP ping, ARP/router table reads, and packet capture. NETWATCH uses HTTP Timing, Resource Timing, DoH, and Navigator APIs.">
+        <span class="status-dot status-dot--info"></span>
+        <span class="capability-text">Browser Telemetry Mode</span>
+      </div>
+      <div class="sidebar-session">
+        <span class="muted-label">Session Uptime</span>
+        <span id="sidebar-uptime" class="mono-val">00:00:00</span>
+      </div>
+    </div>
+  </aside>
+
+  <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+  <!-- Main Workspace -->
+  <div class="main-wrapper">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="mobile-menu-btn" class="icon-btn mobile-only" type="button" aria-label="Open navigation menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </button>
+        <div class="topbar-title-group">
+          <h1 id="view-title" class="view-title">Live Network Overview</h1>
+          <p id="view-subtitle" class="view-subtitle">Real-time browser telemetry, endpoint probes, and session stability</p>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div id="global-connection-pill" class="status-pill status-pill--online" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="global-connection-text">ONLINE</span>
+        </div>
+
+        <button id="monitor-toggle-btn" class="btn btn-primary btn-sm" type="button" title="Start or pause continuous monitoring (Space)">
+          <span class="btn-dot"></span>
+          <span id="monitor-toggle-label">Monitoring Active</span>
+        </button>
+
+        <button id="quick-speedtest-btn" class="btn btn-secondary btn-sm" type="button" title="Run Speed Test (S)">
+          Run Speed Test
+        </button>
+
+        <button id="shortcuts-btn" class="icon-btn" type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="2" y="6" width="20" height="12" rx="2" />
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content" class="main-content" tabindex="-1">
+      <!-- VIEW: OVERVIEW -->
+      <section id="view-overview" class="view-panel is-active" aria-label="Live Network Overview">
+        <!-- Transparency banner -->
+        <div class="info-banner" role="note">
+          <div class="info-banner-content">
+            <span class="badge badge--actual">ACTUAL</span>
+            <span>HTTP Fetch / Performance API / Navigator telemetry.</span>
+            <span class="badge badge--estimated">ESTIMATED</span>
+            <span>Browser-inferred values (e.g. Navigator downlink, jitter).</span>
+            <span class="badge badge--unavailable">UNAVAILABLE</span>
+            <span>Restricted by browser sandbox (raw ICMP, LAN router tables).</span>
+          </div>
+          <button id="customize-widgets-btn" class="btn btn-ghost btn-xs" type="button">Customize Widgets</button>
+        </div>
+
+        <!-- Widget customization drawer -->
+        <div id="widget-customizer" class="panel customizer-panel hidden" aria-label="Customize dashboard widgets">
+          <div class="panel-header">
+            <h2 class="panel-title">Dashboard Widgets</h2>
+            <button id="close-customizer-btn" class="btn btn-ghost btn-xs" type="button">Done</button>
+          </div>
+          <div id="widget-toggles" class="widget-toggle-grid"></div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div id="overview-kpi-grid" class="kpi-grid">
+          <article class="kpi-card" data-widget="status">
+            <div class="kpi-header">
+              <span class="kpi-label">Connection Status</span>
+              <span id="badge-status" class="badge badge--actual">ACTUAL</span>
+            </div>
+            <div id="kpi-status-value" class="kpi-value">Checking...</div>
+            <div id="kpi-status-meta" class="kpi-meta">Navigator online state &amp; probe health</div>
+          </article>
+
+          <article class="kpi-card" data-widget="ip">
+            <div class="kpi-header">
+              <span class="kpi-label">Public IP Address</span>
+              <span id="badge-ip" class="badge badge--unavailable">PENDING</span>
+            </div>
+            <div id="kpi-ip-value" class="kpi-value mono-val">—</div>
+            <div id="kpi-ip-meta" class="kpi-meta">Via external IP lookup service</div>
+          </article>
+
+          <article class="kpi-card" data-widget="conntype">
+            <div class="kpi-header">
+              <span class="kpi-label">Connection Type</span>
+              <span id="badge-conntype" class="badge badge--estimated">BROWSER API</span>
+            </div>
+            <div id="kpi-conntype-value" class="kpi-value">—</div>
+            <div id="kpi-conntype-meta" class="kpi-meta">Navigator Network Information API</div>
+          </article>
+
+          <article class="kpi-card" data-widget="download">
+            <div class="kpi-header">
+              <span class="kpi-label">Download Speed</span>
+              <span id="badge-download" class="badge badge--unavailable">NOT TESTED</span>
+            </div>
+            <div id="kpi-download-value" class="kpi-value mono-val">—</div>
+            <div id="kpi-download-meta" class="kpi-meta">Run Speed Test for measured Mbps</div>
+          </article>
+
+          <article class="kpi-card" data-widget="upload">
+            <div class="kpi-header">
+              <span class="kpi-label">Upload Speed</span>
+              <span id="badge-upload" class="badge badge--unavailable">NOT TESTED</span>
+            </div>
+            <div id="kpi-upload-value" class="kpi-value mono-val">—</div>
+            <div id="kpi-upload-meta" class="kpi-meta">Run Speed Test for measured Mbps</div>
+          </article>
+
+          <article class="kpi-card" data-widget="latency">
+            <div class="kpi-header">
+              <span class="kpi-label">HTTP Latency (RTT)</span>
+              <span id="badge-latency" class="badge badge--unavailable">PENDING</span>
+            </div>
+            <div id="kpi-latency-value" class="kpi-value mono-val">—</div>
+            <div id="kpi-latency-meta" class="kpi-meta">Waiting for first probe</div>
+          </article>
+
+          <article class="kpi-card" data-widget="jitter">
+            <div class="kpi-header">
+              <span class="kpi-label">Jitter (RFC 3550 Est.)</span>
+              <span id="badge-jitter" class="badge badge--unavailable">PENDING</span>
+            </div>
+            <div id="kpi-jitter-value" class="kpi-value mono-val">—</div>
+            <div id="kpi-jitter-meta" class="kpi-meta">Requires &ge; 2 latency samples</div>
+          </article>
+
+          <article class="kpi-card" data-widget="loss">
+            <div class="kpi-header">
+              <span class="kpi-label">Probe Failure Rate</span>
+              <span id="badge-loss" class="badge badge--actual">HTTP PROBE</span>
+            </div>
+            <div id="kpi-loss-value" class="kpi-value mono-val">0.0%</div>
+            <div id="kpi-loss-meta" class="kpi-meta">Failed / timed-out HTTP probes (not ICMP)</div>
+          </article>
+
+          <article class="kpi-card" data-widget="uptime">
+            <div class="kpi-header">
+              <span class="kpi-label">Session Uptime</span>
+              <span class="badge badge--actual">ACTUAL</span>
+            </div>
+            <div id="kpi-uptime-value" class="kpi-value mono-val">100.0%</div>
+            <div id="kpi-uptime-meta" class="kpi-meta">Monitoring duration: 00:00:00</div>
+          </article>
+        </div>
+
+        <!-- Overview Main Grid -->
+        <div class="dashboard-grid">
+          <section class="panel panel--wide" data-widget="live-chart">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Real-Time Latency &amp; Jitter Stream</h2>
+                <p class="panel-subtitle">Measured HTTP round-trip response times to active endpoints</p>
+              </div>
+              <div class="panel-actions">
+                <span id="overview-active-endpoint" class="mono-pill">No endpoint</span>
+                <button id="overview-probe-now-btn" class="btn btn-secondary btn-xs" type="button">Probe Now</button>
+              </div>
+            </div>
+            <div class="chart-container" id="overview-latency-chart-wrap">
+              <canvas id="overview-latency-canvas" class="chart-canvas" aria-label="Real-time latency chart"></canvas>
+              <div id="overview-chart-empty" class="empty-state">Waiting for latency samples...</div>
+            </div>
+          </section>
+
+          <section class="panel" data-widget="endpoints-health">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Monitored Endpoints</h2>
+                <p class="panel-subtitle">Multi-target HTTP availability</p>
+              </div>
+              <button class="btn btn-ghost btn-xs" data-nav-target="latency" type="button">Configure</button>
+            </div>
+            <div id="overview-endpoints-list" class="endpoint-list">
+              <div class="empty-state">Initializing probes...</div>
+            </div>
+          </section>
+
+          <section class="panel" data-widget="event-log">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Live Event Log</h2>
+                <p class="panel-subtitle">Connectivity changes, probes, alerts &amp; tests</p>
+              </div>
+              <button id="clear-event-log-btn" class="btn btn-ghost btn-xs" type="button">Clear</button>
+            </div>
+            <div id="live-event-log" class="event-log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: SPEED TEST -->
+      <section id="view-speedtest" class="view-panel" aria-label="Internet Speed Test" hidden>
+        <div class="speedtest-layout">
+          <section class="panel speedtest-gauge-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Throughput Speed Test</h2>
+                <p class="panel-subtitle">Actual HTTP payload transfer measurement (no synthetic values)</p>
+              </div>
+              <span class="badge badge--actual">ACTUAL TRANSFER</span>
+            </div>
+
+            <div class="speedometer-wrap">
+              <svg id="speedometer-svg" class="speedometer-svg" viewBox="0 0 320 210" role="img" aria-label="Speedometer gauge">
+                <defs>
+                  <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#00E5FF" />
+                    <stop offset="100%" stop-color="#8B5CF6" />
+                  </linearGradient>
+                </defs>
+                <!-- Background track arc -->
+                <path id="gauge-track" class="gauge-track" d="M 40 175 A 120 120 0 1 1 280 175" fill="none" stroke-width="14" stroke-linecap="round" />
+                <!-- Active progress arc -->
+                <path id="gauge-arc" class="gauge-arc" d="M 40 175 A 120 120 0 1 1 280 175" fill="none" stroke="url(#gauge-grad)" stroke-width="14" stroke-linecap="round" />
+                <!-- Scale ticks populated by JS -->
+                <g id="gauge-ticks"></g>
+                <!-- Needle -->
+                <g id="gauge-needle" transform="rotate(-125 160 155)">
+                  <line x1="160" y1="155" x2="160" y2="52" stroke="#E5E7EB" stroke-width="2.5" stroke-linecap="round" />
+                  <circle cx="160" cy="155" r="7" fill="#00E5FF" />
+                </g>
+                <text id="gauge-value" x="160" y="130" text-anchor="middle" class="gauge-readout">0.00</text>
+                <text id="gauge-unit" x="160" y="150" text-anchor="middle" class="gauge-unit">Mbps</text>
+                <text id="gauge-phase" x="160" y="195" text-anchor="middle" class="gauge-phase">READY</text>
+              </svg>
+            </div>
+
+            <div class="speedtest-progress-wrap">
+              <div class="progress-meta">
+                <span id="speedtest-status-text">Select test configuration and press Start Test</span>
+                <span id="speedtest-progress-pct" class="mono-val">0%</span>
+              </div>
+              <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="speedtest-progressbar">
+                <div id="speedtest-progress-fill" class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="speedtest-controls">
+              <button id="speedtest-start-btn" class="btn btn-primary" type="button">Start Speed Test</button>
+              <button id="speedtest-stop-btn" class="btn btn-danger" type="button" disabled>Abort Test</button>
+            </div>
+
+            <div class="speedtest-live-metrics">
+              <div class="mini-stat">
+                <span class="mini-label">Download</span>
+                <span id="st-download-val" class="mini-value mono-val">—</span>
+              </div>
+              <div class="mini-stat">
+                <span class="mini-label">Upload</span>
+                <span id="st-upload-val" class="mini-value mono-val">—</span>
+              </div>
+              <div class="mini-stat">
+                <span class="mini-label">Latency</span>
+                <span id="st-latency-val" class="mini-value mono-val">—</span>
+              </div>
+              <div class="mini-stat">
+                <span class="mini-label">Jitter</span>
+                <span id="st-jitter-val" class="mini-value mono-val">—</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Speed Test Configuration</h2>
+                <p class="panel-subtitle">Configurable CORS-enabled transfer endpoints</p>
+              </div>
+            </div>
+            <form id="speedtest-config-form" class="form-stack">
+              <div class="form-group">
+                <label for="st-provider-select">Test Endpoint Profile</label>
+                <select id="st-provider-select" class="input">
+                  <option value="cloudflare">Cloudflare Speed Edge (speed.cloudflare.com)</option>
+                  <option value="custom">Custom HTTP Endpoints</option>
+                </select>
+              </div>
+
+              <div id="st-custom-fields" class="form-stack hidden">
+                <div class="form-group">
+                  <label for="st-down-url">Custom Download URL (CORS required)</label>
+                  <input id="st-down-url" class="input mono-val" type="url" placeholder="https://speed.cloudflare.com/__down?bytes=10000000" />
+                </div>
+                <div class="form-group">
+                  <label for="st-up-url">Custom Upload URL (CORS POST required)</label>
+                  <input id="st-up-url" class="input mono-val" type="url" placeholder="https://speed.cloudflare.com/__up" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="st-down-size">Download Payload (4s max)</label>
+                  <select id="st-down-size" class="input">
+                    <option value="3000000" selected>3 MB (Fast)</option>
+                    <option value="6000000">6 MB (Balanced)</option>
+                    <option value="15000000">15 MB (High Accuracy)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="st-up-size">Upload Payload (4s max)</label>
+                  <select id="st-up-size" class="input">
+                    <option value="1000000" selected>1 MB (Fast)</option>
+                    <option value="2000000">2 MB (Balanced)</option>
+                    <option value="5000000">5 MB (High Accuracy)</option>
+                  </select>
+                </div>
+              </div>
+            </form>
+
+            <div class="divider"></div>
+
+            <div class="panel-header">
+              <h3 class="panel-title">Speed Test History</h3>
+              <button id="clear-speed-history-btn" class="btn btn-ghost btn-xs" type="button">Clear</button>
+            </div>
+            <div id="speedtest-history-list" class="table-wrap">
+              <div class="empty-state">No speed tests recorded yet.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: LATENCY & STABILITY -->
+      <section id="view-latency" class="view-panel" aria-label="Latency and Stability Monitor" hidden>
+        <div class="dashboard-grid">
+          <section class="panel panel--wide">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Latency Monitor &amp; Endpoint Targets</h2>
+                <p class="panel-subtitle">Configurable HTTP round-trip polling, timeout detection, and RFC 3550 jitter</p>
+              </div>
+              <div class="panel-actions">
+                <label class="inline-field" for="latency-interval-select">
+                  <span>Interval</span>
+                  <select id="latency-interval-select" class="input input-xs">
+                    <option value="2000">2s</option>
+                    <option value="5000" selected>5s</option>
+                    <option value="10000">10s</option>
+                    <option value="30000">30s</option>
+                  </select>
+                </label>
+                <button id="latency-sample-btn" class="btn btn-primary btn-xs" type="button">Sample All Now</button>
+              </div>
+            </div>
+
+            <div class="stats-strip">
+              <div class="mini-stat"><span class="mini-label">Min RTT</span><span id="lat-min" class="mini-value mono-val">—</span></div>
+              <div class="mini-stat"><span class="mini-label">Avg RTT</span><span id="lat-avg" class="mini-value mono-val">—</span></div>
+              <div class="mini-stat"><span class="mini-label">Max RTT</span><span id="lat-max" class="mini-value mono-val">—</span></div>
+              <div class="mini-stat"><span class="mini-label">Jitter</span><span id="lat-jitter" class="mini-value mono-val">—</span></div>
+              <div class="mini-stat"><span class="mini-label">Timeouts / Fails</span><span id="lat-fails" class="mini-value mono-val">0</span></div>
+            </div>
+
+            <div class="chart-container">
+              <canvas id="latency-history-canvas" class="chart-canvas" aria-label="Historical latency chart"></canvas>
+              <div id="latency-chart-empty" class="empty-state">No latency samples yet.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Configured Endpoints</h2>
+                <p class="panel-subtitle">Add or toggle HTTPS targets to monitor</p>
+              </div>
+            </div>
+            <form id="add-endpoint-form" class="inline-form">
+              <input id="new-endpoint-name" class="input" type="text" placeholder="Label (e.g. Cloudflare)" maxlength="32" required />
+              <input id="new-endpoint-url" class="input mono-val" type="url" placeholder="https://1.1.1.1/cdn-cgi/trace" required />
+              <button class="btn btn-primary btn-sm" type="submit">Add</button>
+            </form>
+            <div id="endpoint-manager-list" class="endpoint-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Stability &amp; Incident Timeline</h2>
+                <p class="panel-subtitle">Disconnections, response failures, latency spikes &amp; recovery times</p>
+              </div>
+              <span id="stability-uptime-badge" class="badge badge--actual">100.0% UPTIME</span>
+            </div>
+            <div id="incident-timeline" class="timeline-list">
+              <div class="empty-state">No network incidents detected during this session.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: NETWORK MAP -->
+      <section id="view-topology" class="view-panel" aria-label="Interactive Network Map" hidden>
+        <div class="topology-layout">
+          <section class="panel topology-canvas-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Interactive Network Path Visualization</h2>
+                <p class="panel-subtitle">Observed browser telemetry &amp; illustrative local gateway hop (browser cannot read physical LAN topology)</p>
+              </div>
+              <div class="panel-actions">
+                <span class="badge badge--estimated">HYBRID: ACTUAL + ILLUSTRATIVE</span>
+                <button id="topology-reset-btn" class="btn btn-ghost btn-xs" type="button">Reset View</button>
+              </div>
+            </div>
+            <div class="topology-stage">
+              <canvas id="network-map-canvas" aria-label="Interactive network topology canvas"></canvas>
+              <div class="topology-legend">
+                <span><i class="legend-dot legend-dot--actual"></i> Observed Target</span>
+                <span><i class="legend-dot legend-dot--inferred"></i> Illustrative Gateway / ISP Hop</span>
+                <span><i class="legend-dot legend-dot--error"></i> Degraded / Unreachable</span>
+              </div>
+            </div>
+          </section>
+
+          <aside class="panel topology-inspector">
+            <div class="panel-header">
+              <h2 class="panel-title">Node Inspector</h2>
+            </div>
+            <div id="topology-node-details" class="inspector-body">
+              <div class="empty-state">Click or hover any node on the network map to inspect telemetry, measurement provenance, and status.</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- VIEW: DIAGNOSTICS -->
+      <section id="view-diagnostics" class="view-panel" aria-label="Network Diagnostics" hidden>
+        <div class="dashboard-grid">
+          <section class="panel panel--wide">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Network Diagnostics Suite</h2>
+                <p class="panel-subtitle">DNS-over-HTTPS resolution, HTTP endpoint availability, response timing, and public IP inspection</p>
+              </div>
+              <button id="run-all-diagnostics-btn" class="btn btn-primary btn-sm" type="button">Run Full Diagnostic Suite</button>
+            </div>
+
+            <form id="diagnostics-form" class="diag-controls">
+              <div class="form-group">
+                <label for="diag-domain-input">Hostname for DNS Lookup (DoH)</label>
+                <div class="input-action-row">
+                  <input id="diag-domain-input" class="input mono-val" type="text" value="cloudflare.com" placeholder="example.com" />
+                  <select id="diag-record-type" class="input input-xs">
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                  </select>
+                  <button id="run-dns-btn" class="btn btn-secondary btn-sm" type="button">Resolve DNS</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="diag-url-input">HTTP Endpoint Availability Check</label>
+                <div class="input-action-row">
+                  <input id="diag-url-input" class="input mono-val" type="url" value="https://1.1.1.1/cdn-cgi/trace" placeholder="https://example.com" />
+                  <button id="run-http-check-btn" class="btn btn-secondary btn-sm" type="button">Check Endpoint</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2 class="panel-title">Diagnostic Results</h2>
+              <span class="badge badge--actual">LIVE CHECKS</span>
+            </div>
+            <div id="diagnostics-results" class="diag-results-list">
+              <div class="empty-state">Run diagnostics to inspect DNS, HTTP reachability, browser connectivity, and public IP telemetry.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2 class="panel-title">Troubleshooting Recommendations</h2>
+            </div>
+            <div id="diagnostics-recommendations" class="recommendations-list">
+              <div class="empty-state">Actionable recommendations will appear here based on diagnostic findings.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: ANALYTICS -->
+      <section id="view-analytics" class="view-panel" aria-label="Network Analytics" hidden>
+        <div class="analytics-toolbar panel">
+          <div class="range-selector" role="group" aria-label="Time range">
+            <button class="btn btn-xs range-btn is-active" data-range="15m" type="button">15m</button>
+            <button class="btn btn-xs range-btn" data-range="1h" type="button">1h</button>
+            <button class="btn btn-xs range-btn" data-range="24h" type="button">24h</button>
+            <button class="btn btn-xs range-btn" data-range="7d" type="button">7d</button>
+          </div>
+
+          <div class="analytics-actions">
+            <button id="export-csv-btn" class="btn btn-secondary btn-xs" type="button">Export CSV</button>
+            <button id="export-json-btn" class="btn btn-secondary btn-xs" type="button">Export JSON</button>
+            <button id="export-report-btn" class="btn btn-primary btn-xs" type="button">Download HTML Report</button>
+          </div>
+        </div>
+
+        <div id="analytics-comparison-strip" class="stats-strip panel">
+          <div class="mini-stat"><span class="mini-label">Samples in Window</span><span id="ana-count" class="mini-value mono-val">0</span></div>
+          <div class="mini-stat"><span class="mini-label">Avg Latency vs Prior</span><span id="ana-lat-delta" class="mini-value mono-val">—</span></div>
+          <div class="mini-stat"><span class="mini-label">Avg Jitter</span><span id="ana-jitter-avg" class="mini-value mono-val">—</span></div>
+          <div class="mini-stat"><span class="mini-label">Availability</span><span id="ana-availability" class="mini-value mono-val">—</span></div>
+          <div class="mini-stat"><span class="mini-label">Interruptions</span><span id="ana-interruptions" class="mini-value mono-val">0</span></div>
+        </div>
+
+        <div class="analytics-grid">
+          <section class="panel">
+            <div class="panel-header"><h2 class="panel-title">Latency &amp; Jitter History</h2></div>
+            <div class="chart-container"><canvas id="analytics-latency-canvas" class="chart-canvas"></canvas></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h2 class="panel-title">Download &amp; Upload Speed History</h2></div>
+            <div class="chart-container"><canvas id="analytics-speed-canvas" class="chart-canvas"></canvas></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h2 class="panel-title">Network Availability (%)</h2></div>
+            <div class="chart-container"><canvas id="analytics-availability-canvas" class="chart-canvas"></canvas></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h2 class="panel-title">Connection Interruptions</h2></div>
+            <div class="chart-container"><canvas id="analytics-interruptions-canvas" class="chart-canvas"></canvas></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: ALERTS -->
+      <section id="view-alerts" class="view-panel" aria-label="Monitoring Alerts" hidden>
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Alert Thresholds</h2>
+                <p class="panel-subtitle">Trigger visual, log, and optional browser notifications</p>
+              </div>
+              <button id="request-notif-btn" class="btn btn-secondary btn-xs" type="button">Enable Browser Notifications</button>
+            </div>
+            <form id="alert-thresholds-form" class="form-stack">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="alert-latency-max">High Latency Threshold (ms)</label>
+                  <input id="alert-latency-max" class="input mono-val" type="number" min="20" max="5000" value="200" />
+                </div>
+                <div class="form-group">
+                  <label for="alert-jitter-max">Excessive Jitter Threshold (ms)</label>
+                  <input id="alert-jitter-max" class="input mono-val" type="number" min="5" max="2000" value="50" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="alert-loss-max">Failure Rate Threshold (%)</label>
+                  <input id="alert-loss-max" class="input mono-val" type="number" min="1" max="100" value="20" />
+                </div>
+                <div class="form-group">
+                  <label for="alert-cooldown-sec">Alert Cooldown (seconds)</label>
+                  <input id="alert-cooldown-sec" class="input mono-val" type="number" min="5" max="600" value="30" />
+                </div>
+              </div>
+              <label class="checkbox-row">
+                <input id="alert-notify-disconnect" type="checkbox" checked />
+                <span>Alert on internet disconnection / recovery</span>
+              </label>
+              <label class="checkbox-row">
+                <input id="alert-notify-browser" type="checkbox" />
+                <span>Send desktop notifications when permitted</span>
+              </label>
+              <button class="btn btn-primary btn-sm" type="submit">Save Alert Rules</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Triggered Alerts</h2>
+                <p class="panel-subtitle">Active and historical alert events</p>
+              </div>
+              <button id="clear-alerts-btn" class="btn btn-ghost btn-xs" type="button">Clear All</button>
+            </div>
+            <div id="alerts-feed" class="alerts-feed">
+              <div class="empty-state">No alerts triggered. All monitored thresholds are nominal.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW: SETTINGS -->
+      <section id="view-settings" class="view-panel" aria-label="Platform Settings" hidden>
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Monitoring &amp; Storage Settings</h2>
+                <p class="panel-subtitle">Configure polling cadence, timeouts, Web Worker offloading, and local persistence</p>
+              </div>
+            </div>
+            <form id="settings-form" class="form-stack">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="setting-poll-interval">Probe Interval (ms)</label>
+                  <input id="setting-poll-interval" class="input mono-val" type="number" min="2000" max="60000" step="1000" value="5000" />
+                </div>
+                <div class="form-group">
+                  <label for="setting-timeout">Probe Timeout (ms)</label>
+                  <input id="setting-timeout" class="input mono-val" type="number" min="1000" max="30000" step="500" value="4500" />
+                </div>
+              </div>
+              <label class="checkbox-row">
+                <input id="setting-use-worker" type="checkbox" checked />
+                <span>Use Web Worker for statistical &amp; analytics calculations</span>
+              </label>
+              <label class="checkbox-row">
+                <input id="setting-persist-db" type="checkbox" checked />
+                <span>Persist telemetry samples &amp; speed tests to IndexedDB</span>
+              </label>
+              <label class="checkbox-row">
+                <input id="setting-auto-ip" type="checkbox" checked />
+                <span>Lookup public IP address on startup</span>
+              </label>
+              <div class="form-actions">
+                <button class="btn btn-primary btn-sm" type="submit">Apply Settings</button>
+                <button id="reset-settings-btn" class="btn btn-secondary btn-sm" type="button">Restore Defaults</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Local Data &amp; Browser Capabilities</h2>
+                <p class="panel-subtitle">Storage utilization and sandbox transparency</p>
+              </div>
+            </div>
+            <div id="capabilities-summary" class="capabilities-list"></div>
+            <div class="divider"></div>
+            <div class="form-actions">
+              <button id="purge-db-btn" class="btn btn-danger btn-sm" type="button">Purge Local IndexedDB History</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <dialog id="shortcuts-dialog" class="modal" aria-labelledby="shortcuts-title">
+    <div class="modal-header">
+      <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
+      <button id="close-shortcuts-btn" class="icon-btn" type="button" aria-label="Close modal">&times;</button>
+    </div>
+    <div class="shortcuts-grid">
+      <div><kbd>1</kbd> – <kbd>8</kbd></div><div>Switch navigation views</div>
+      <div><kbd>[</kbd></div><div>Collapse / expand sidebar</div>
+      <div><kbd>Space</kbd></div><div>Pause / resume monitoring</div>
+      <div><kbd>R</kbd></div><div>Trigger immediate probe</div>
+      <div><kbd>S</kbd></div><div>Jump to Speed Test</div>
+      <div><kbd>?</kbd></div><div>Show / hide shortcuts</div>
+      <div><kbd>Esc</kbd></div><div>Close modal / drawer</div>
+    </div>
+  </dialog>
+
+  <!-- Toast notifications container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
