@@ -50,6 +50,11 @@ export const DEFAULT_SETTINGS = {
   persistDb: true,
   autoLookupIp: true,
   sidebarCollapsed: false,
+  fastMode: false,
+  mapPeerCount: 0,
+  connectionLabel: '',
+  selectedRegions: ['north-america', 'europe'],
+  scoreAlertThreshold: 70,
   endpoints: DEFAULT_ENDPOINTS,
   widgets: DEFAULT_WIDGETS.reduce((acc, w) => {
     acc[w.id] = w.visible;

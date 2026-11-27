@@ -517,19 +517,35 @@
           <section class="panel topology-canvas-panel">
             <div class="panel-header">
               <div>
-                <h2 class="panel-title">Interactive Network Path Visualization</h2>
-                <p class="panel-subtitle">Observed browser telemetry &amp; illustrative local gateway hop (browser cannot read physical LAN topology)</p>
+                <h2 class="panel-title">Interactive Network Map</h2>
+                <p class="panel-subtitle">Live LAN device discovery + internet endpoint monitoring</p>
               </div>
               <div class="panel-actions">
-                <span class="badge badge--estimated">HYBRID: ACTUAL + ILLUSTRATIVE</span>
+                <span id="topology-agent-badge" class="badge badge--unavailable">Agent Offline</span>
+                <span id="topology-device-count" class="badge badge--estimated" style="display:none">0 Devices</span>
+                <button id="topology-scan-btn" class="btn btn-primary btn-xs" type="button" title="Scan local network for devices">Scan Network</button>
                 <button id="topology-reset-btn" class="btn btn-ghost btn-xs" type="button">Reset View</button>
               </div>
             </div>
+
+            <!-- Agent notice banner -->
+            <div id="topology-agent-notice" class="info-banner" role="note" style="margin-bottom:0;border-radius:0;">
+              <div class="info-banner-content" style="flex-wrap:nowrap;gap:10px;">
+                <span class="badge badge--warn">LOCAL AGENT</span>
+                <span style="font-size:12px;">LAN device discovery requires the companion agent.
+                  Run <code style="background:#1f2937;padding:2px 6px;border-radius:4px;font-size:11px;">node agent.js</code> in the NETWATCH folder.
+                  Internet endpoints display without the agent.
+                </span>
+              </div>
+              <span id="topology-scan-status" class="mono-val" style="font-size:11px;white-space:nowrap;color:var(--text-muted);">Checking agent…</span>
+            </div>
+
             <div class="topology-stage">
               <canvas id="network-map-canvas" aria-label="Interactive network topology canvas"></canvas>
               <div class="topology-legend">
-                <span><i class="legend-dot legend-dot--actual"></i> Observed Target</span>
-                <span><i class="legend-dot legend-dot--inferred"></i> Illustrative Gateway / ISP Hop</span>
+                <span><i class="legend-dot legend-dot--actual"></i> LAN Device (Real)</span>
+                <span><i class="legend-dot" style="background:#16a34a;box-shadow:0 0 6px #16a34a66;"></i> LAN Link</span>
+                <span><i class="legend-dot legend-dot--inferred"></i> Illustrative Hop</span>
                 <span><i class="legend-dot legend-dot--error"></i> Degraded / Unreachable</span>
               </div>
             </div>
@@ -540,7 +556,16 @@
               <h2 class="panel-title">Node Inspector</h2>
             </div>
             <div id="topology-node-details" class="inspector-body">
-              <div class="empty-state">Click or hover any node on the network map to inspect telemetry, measurement provenance, and status.</div>
+              <div class="empty-state">Click any node on the map to see device details.</div>
+            </div>
+
+            <!-- Discovered devices list -->
+            <div class="panel-header" style="margin-top:16px;">
+              <h3 class="panel-title" style="font-size:13px;">Discovered Devices</h3>
+              <span id="topology-last-scan" class="muted-label" style="font-size:11px;">—</span>
+            </div>
+            <div id="topology-device-list" class="inspector-body" style="padding-top:4px;">
+              <div class="empty-state" style="font-size:12px;">Run a scan to discover LAN devices.</div>
             </div>
           </aside>
         </div>

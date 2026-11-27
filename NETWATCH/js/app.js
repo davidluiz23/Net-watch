@@ -878,12 +878,119 @@ class NetwatchApp {
 
   /* ---------------- Topology UI ---------------- */
   _initTopologyUI() {
-    const canvas = document.getElementById('network-map-canvas');
+    const canvas    = document.getElementById('network-map-canvas');
     const inspector = document.getElementById('topology-node-details');
     this.networkMap = new NetworkMapVisualizer(canvas, inspector);
 
+    // Hook scan status updates
+    this.networkMap.onScanStatusChange = (evt) => this._handleScanStatus(evt);
+
     document.getElementById('topology-reset-btn').addEventListener('click', () => {
       this.networkMap.resetView();
+    });
+
+    document.getElementById('topology-scan-btn').addEventListener('click', () => {
+      this.networkMap.scanNetwork();
+    });
+  }
+
+  _handleScanStatus({ status, count, scannedAt, message }) {
+    const badge      = document.getElementById('topology-agent-badge');
+    const countBadge = document.getElementById('topology-device-count');
+    const notice     = document.getElementById('topology-scan-status');
+    const scanBtn    = document.getElementById('topology-scan-btn');
+    const lastScanEl = document.getElementById('topology-last-scan');
+
+    switch (status) {
+      case 'idle':
+        badge.textContent = 'Agent Online';
+        badge.className   = 'badge badge--actual';
+        notice.textContent = 'Agent connected — click Scan Network to discover devices.';
+        scanBtn.disabled  = false;
+        break;
+
+      case 'scanning':
+        badge.textContent  = 'Scanning…';
+        badge.className    = 'badge badge--warn';
+        notice.textContent = 'ARP/ping sweep in progress — this takes 20–40 s…';
+        scanBtn.disabled   = true;
+        break;
+
+      case 'done': {
+        badge.textContent  = 'Agent Online';
+        badge.className    = 'badge badge--actual';
+        countBadge.textContent = `${count} Device${count !== 1 ? 's' : ''}`;
+        countBadge.style.display = '';
+        notice.textContent = `Scan complete — ${count} device${count !== 1 ? 's' : ''} found.`;
+        scanBtn.disabled   = false;
+        if (scannedAt && lastScanEl) {
+          lastScanEl.textContent = `Last scan: ${new Date(scannedAt).toLocaleTimeString()}`;
+        }
+        this._renderDeviceList(this.networkMap.lanDevices);
+        this.logEvent('ok', `LAN scan complete: ${count} device${count !== 1 ? 's' : ''} discovered.`);
+        break;
+      }
+
+      case 'unavailable':
+        badge.textContent  = 'Agent Offline';
+        badge.className    = 'badge badge--unavailable';
+        notice.textContent = 'Agent unavailable — run: node agent.js in the NETWATCH folder.';
+        scanBtn.disabled   = false;
+        break;
+
+      case 'error':
+        badge.textContent  = 'Scan Error';
+        badge.className    = 'badge badge--error';
+        notice.textContent = `Scan failed: ${message || 'Unknown error'}`;
+        scanBtn.disabled   = false;
+        this.logEvent('error', `LAN scan failed: ${message}`);
+        break;
+    }
+  }
+
+  _renderDeviceList(devices) {
+    const el = document.getElementById('topology-device-list');
+    if (!el) return;
+    if (!devices || devices.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="font-size:12px;">No devices discovered.</div>';
+      return;
+    }
+
+    const TYPE_ICON = {
+      'this-device': '💻', 'router': '📡', 'desktop': '🖥',
+      'phone': '📱', 'server': '🖧', 'iot': '🔌', 'unknown': '❓'
+    };
+
+    el.innerHTML = devices.map((d) => {
+      const icon = TYPE_ICON[d.type] || '❓';
+      const label = d.hostname || d.ip;
+      const sub   = d.vendor !== 'Unknown' ? d.vendor : d.ip;
+      const statusColor = d.status === 'online' ? '#16a34a' : '#dc2626';
+      return `
+        <div class="cap-item" style="cursor:pointer;padding:6px 4px;border-radius:6px;" data-device-ip="${escapeHtml(d.ip)}">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">${icon}</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:#f3f4f6;">${escapeHtml(label)}</div>
+              <div style="font-size:11px;color:#9ca3af;">${escapeHtml(sub)}</div>
+            </div>
+            <span style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Click on device list item → select node on canvas
+    el.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-device-ip]');
+      if (!item) return;
+      const ip = item.dataset.deviceIp;
+      const nodeId = `lan-${ip.replace(/\./g, '-')}`;
+      const node = this.networkMap.nodes.find((n) => n.id === nodeId);
+      if (node) {
+        this.networkMap.selectedNodeId = nodeId;
+        this.networkMap._renderInspector(node);
+      }
     });
   }
 
