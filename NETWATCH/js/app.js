@@ -3,7 +3,7 @@
  * Coordinates all monitoring, testing, diagnostics, visualization, analytics, alerts, and UI views.
  */
 
-import { DEFAULT_WIDGETS, loadSettings, resetSettings, saveSettings } from './settings.js';
+import { DEFAULT_WIDGETS, loadAgentToken, loadSettings, resetSettings, saveAgentToken, saveSettings } from './settings.js';
 import { storage, STORES } from './storage.js';
 import { NetworkMonitor } from './network-monitor.js';
 import { LatencyMonitor } from './latency-monitor.js';
@@ -11,7 +11,6 @@ import { SpeedTestEngine } from './speed-test.js';
 import { DiagnosticsEngine } from './diagnostics.js';
 import { NetworkMapVisualizer } from './network-map.js';
 import { AnalyticsEngine } from './analytics.js';
-import { AlertsEngine } from './alerts.js';
 import { drawLineChart } from './chart-renderer.js';
 import {
   escapeHtml,
@@ -47,10 +46,6 @@ const VIEW_META = {
   analytics: {
     title: 'Network Analytics',
     subtitle: 'Historical performance trends, comparisons, and downloadable reports'
-  },
-  alerts: {
-    title: 'Monitoring Alerts',
-    subtitle: 'Configurable thresholds, alert feed, and browser notifications'
   },
   settings: {
     title: 'Platform Settings',
@@ -101,10 +96,6 @@ class NetwatchApp {
 
     this.diagnostics = new DiagnosticsEngine();
     this.analytics = new AnalyticsEngine();
-    this.alerts = new AlertsEngine({
-      onEvent: (lvl, msg) => this.logEvent(lvl, msg),
-      onBadgeUpdate: (count) => this._updateAlertBadge(count)
-    });
 
     this.networkMap = null;
     this._gaugeArcLength = 0;
@@ -112,12 +103,10 @@ class NetwatchApp {
 
   async init() {
     await storage.init();
-    await this.alerts.loadHistory();
 
     this.networkMonitor.setPersistEnabled(this.settings.persistDb);
     this.speedTest.setPersistEnabled(this.settings.persistDb);
     this.analytics.setUseWorker(this.settings.useWorker);
-    this.alerts.configure(this.settings.alerts, this.settings.persistDb);
 
     this.latencyMonitor.configure({
       endpoints: this.settings.endpoints,
@@ -134,7 +123,6 @@ class NetwatchApp {
     this._initTopologyUI();
     this._initDiagnosticsUI();
     this._initAnalyticsUI();
-    this._initAlertsUI();
     this._initSettingsUI();
     this._initKeyboardShortcuts();
 
@@ -176,7 +164,6 @@ class NetwatchApp {
       this._renderIncidents(this.networkMonitor.incidents);
     }
 
-    this.alerts.renderFeed(document.getElementById('alerts-feed'));
     this._renderCapabilities();
   }
 
@@ -263,13 +250,9 @@ class NetwatchApp {
       this.networkMap.setActive(viewId === 'topology');
     }
 
-    if (viewId === 'alerts') {
-      this.alerts.markRead();
-      this.alerts.renderFeed(document.getElementById('alerts-feed'));
-    }
-
     if (viewId === 'settings') {
       this._renderCapabilities();
+      if (this.networkMap) this.networkMap.checkAgent();
     }
 
     this._redrawActiveCharts();
@@ -347,7 +330,6 @@ class NetwatchApp {
 
     if (snap.online !== this.prevOnline) {
       this.prevOnline = snap.online;
-      this.alerts.evaluateConnectivity(snap.online);
     }
 
     const agg = this.latencyMonitor.getAggregateStats();
@@ -462,7 +444,6 @@ class NetwatchApp {
     document.getElementById('lat-fails').textContent = String(aggregate.failedProbes);
 
     this._renderEndpointLists();
-    this.alerts.evaluateSample({ results, aggregate });
 
     if (this.activeView === 'overview' || this.activeView === 'latency') {
       this._drawLatencyCharts(samples);
@@ -876,14 +857,24 @@ class NetwatchApp {
     this._renderEndpointLists();
   }
 
-  /* ---------------- Topology UI ---------------- */
+  /* ---------------- Topology UI & Device Inspection ---------------- */
   _initTopologyUI() {
-    const canvas    = document.getElementById('network-map-canvas');
+    const canvas = document.getElementById('network-map-canvas');
     const inspector = document.getElementById('topology-node-details');
     this.networkMap = new NetworkMapVisualizer(canvas, inspector);
+    this._activeInspectedIp = null;
 
-    // Hook scan status updates
+    // Configure agent connection from persisted settings + session/local token
+    const agentCfg = this.settings.agent || { host: '127.0.0.1', port: 7779, rememberToken: false };
+    this.networkMap.configureAgent({
+      host: agentCfg.host,
+      port: agentCfg.port,
+      token: loadAgentToken(agentCfg.rememberToken)
+    });
+
+    // Hook scan status updates & clickable node inspection
     this.networkMap.onScanStatusChange = (evt) => this._handleScanStatus(evt);
+    this.networkMap.onDeviceClick = (node) => this._openDeviceDetailsModal(node);
 
     document.getElementById('topology-reset-btn').addEventListener('click', () => {
       this.networkMap.resetView();
@@ -892,67 +883,220 @@ class NetwatchApp {
     document.getElementById('topology-scan-btn').addEventListener('click', () => {
       this.networkMap.scanNetwork();
     });
+
+    document.getElementById('topology-refresh-btn').addEventListener('click', async () => {
+      const data = await this.networkMap.fetchCachedDevices();
+      if (data && data.message && (!data.devices || data.devices.length === 0)) {
+        showToast(data.message, 'info');
+      } else if (data) {
+        showToast('Refreshed device list from agent.', 'ok');
+      }
+    });
+
+    document.getElementById('topology-agent-settings-btn').addEventListener('click', () => {
+      this.switchView('settings');
+      const panel = document.getElementById('agent-connection-panel');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // Delegate click from side inspector button -> open modal
+    inspector.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-open-device-modal]');
+      if (!btn) return;
+      const nodeId = btn.dataset.openDeviceModal;
+      const node = this.networkMap.nodes.find((n) => n.id === nodeId);
+      if (node) this._openDeviceDetailsModal(node);
+    });
+
+    // Delegate click from discovered device list -> select & open full details modal
+    const deviceListEl = document.getElementById('topology-device-list');
+    deviceListEl.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-device-ip]');
+      if (!item) return;
+      const ip = item.dataset.deviceIp;
+      const node = this.networkMap.nodes.find((n) => n.device && n.device.ip === ip);
+      if (node) {
+        this.networkMap.selectNode(node.id, true);
+      } else {
+        const dev = this.networkMap.getAllKnownDevices().find((d) => d.ip === ip);
+        if (dev) {
+          this._openDeviceDetailsModal({
+            id: `lan-${ip.replace(/\./g, '-')}`,
+            kind: 'lan',
+            label: dev.hostname || dev.ip,
+            icon: '💻',
+            provenance: 'ACTUAL',
+            status: dev.status === 'online' ? 'ok' : 'offline',
+            device: dev,
+            meta: {}
+          });
+        }
+      }
+    });
+
+    // Device Details modal controls
+    const modal = document.getElementById('device-details-dialog');
+    document.getElementById('close-device-modal-btn').addEventListener('click', () => modal.close());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.close();
+    });
+    document.getElementById('device-run-diag-btn').addEventListener('click', () => {
+      if (this._activeInspectedIp) {
+        this._runLiveDeviceDiagnostics(this._activeInspectedIp);
+      }
+    });
+
+    // Render any cached scan from previous session immediately
+    if (this.networkMap.getAllKnownDevices().length > 0) {
+      this._renderDeviceList(this.networkMap.getAllKnownDevices());
+      if (this.networkMap.lastSuccessfulScanAt) {
+        document.getElementById('topology-last-scan').textContent =
+          `Last scan: ${formatTime(this.networkMap.lastSuccessfulScanAt)}`;
+      }
+    }
   }
 
-  _handleScanStatus({ status, count, scannedAt, message }) {
-    const badge      = document.getElementById('topology-agent-badge');
+  _handleScanStatus({ status, count, offlineCount, scannedAt, lastSuccessfulScanAt, changes, message, info }) {
+    const badge = document.getElementById('topology-agent-badge');
     const countBadge = document.getElementById('topology-device-count');
-    const notice     = document.getElementById('topology-scan-status');
-    const scanBtn    = document.getElementById('topology-scan-btn');
+    const notice = document.getElementById('topology-scan-status');
+    const hint = document.getElementById('topology-agent-hint');
+    const scanBtn = document.getElementById('topology-scan-btn');
+    const refreshBtn = document.getElementById('topology-refresh-btn');
     const lastScanEl = document.getElementById('topology-last-scan');
 
+    this._syncAgentSettingsStatus(status, info || this.networkMap.agentInfo);
+
     switch (status) {
-      case 'idle':
-        badge.textContent = 'Agent Online';
-        badge.className   = 'badge badge--actual';
-        notice.textContent = 'Agent connected — click Scan Network to discover devices.';
-        scanBtn.disabled  = false;
-        break;
-
-      case 'scanning':
-        badge.textContent  = 'Scanning…';
-        badge.className    = 'badge badge--warn';
-        notice.textContent = 'ARP/ping sweep in progress — this takes 20–40 s…';
-        scanBtn.disabled   = true;
-        break;
-
-      case 'done': {
-        badge.textContent  = 'Agent Online';
-        badge.className    = 'badge badge--actual';
-        countBadge.textContent = `${count} Device${count !== 1 ? 's' : ''}`;
-        countBadge.style.display = '';
-        notice.textContent = `Scan complete — ${count} device${count !== 1 ? 's' : ''} found.`;
-        scanBtn.disabled   = false;
-        if (scannedAt && lastScanEl) {
-          lastScanEl.textContent = `Last scan: ${new Date(scannedAt).toLocaleTimeString()}`;
+      case 'idle': {
+        const modeTag = info?.mode === 'lan' ? 'LAN' : 'Local';
+        badge.textContent = `Agent Online (${modeTag})`;
+        badge.className = 'badge badge--actual';
+        notice.textContent = info?.cidr ? `Subnet ${info.cidr} ready` : 'Agent connected';
+        if (hint) {
+          hint.textContent = `Connected to NETWATCH Agent at ${this.networkMap.getAgentBaseUrl()}. Click Scan Network to discover devices, or click any node to inspect.`;
         }
-        this._renderDeviceList(this.networkMap.lanDevices);
-        this.logEvent('ok', `LAN scan complete: ${count} device${count !== 1 ? 's' : ''} discovered.`);
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
+        if (this.networkMap.lanDevices.length === 0) {
+          // Pull any cached devices or history from the agent automatically
+          this.networkMap.fetchCachedDevices();
+        }
         break;
       }
 
+      case 'scanning':
+        badge.textContent = 'Scanning…';
+        badge.className = 'badge badge--warn';
+        notice.textContent = 'Fast parallel LAN sweep in progress…';
+        scanBtn.disabled = true;
+        refreshBtn.disabled = true;
+        break;
+
+      case 'done':
+      case 'refreshed': {
+        const modeTag = this.networkMap.agentInfo?.mode === 'lan' ? 'LAN' : 'Local';
+        badge.textContent = `Agent Online (${modeTag})`;
+        badge.className = 'badge badge--actual';
+        const onlineN = count || 0;
+        const offN = offlineCount || 0;
+        countBadge.textContent = offN > 0 ? `${onlineN} Online · ${offN} Offline` : `${onlineN} Device${onlineN !== 1 ? 's' : ''}`;
+        countBadge.style.display = '';
+        notice.textContent = status === 'done'
+          ? `Scan complete — ${onlineN} online${offN ? `, ${offN} offline` : ''}`
+          : (message || `${onlineN} online${offN ? `, ${offN} offline` : ''}`);
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
+        const ts = lastSuccessfulScanAt || scannedAt;
+        if (ts && lastScanEl) {
+          lastScanEl.textContent = `Last scan: ${formatTime(ts)}`;
+        }
+        this._renderScanDiffStrip(changes, ts);
+        this._renderDeviceList(this.networkMap.getAllKnownDevices());
+        if (status === 'done') {
+          this.logEvent('ok', `LAN scan complete: ${onlineN} online${offN ? `, ${offN} offline` : ''}.`);
+        }
+        break;
+      }
+
+      case 'auth_required':
+        badge.textContent = 'Token Required';
+        badge.className = 'badge badge--warn';
+        notice.textContent = 'Enter Agent Access Token in Agent Settings';
+        if (hint) {
+          hint.textContent = 'Agent is reachable in Secure LAN Mode and requires your Access Token. Click "Agent Settings" to enter the token printed by node agent.js --lan.';
+        }
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
+        break;
+
+      case 'mixed_content':
+        badge.textContent = 'HTTPS Mixed Content';
+        badge.className = 'badge badge--warn';
+        notice.textContent = 'Serve over HTTP on LAN to reach agent';
+        if (hint) {
+          hint.textContent = message || 'Browsers block HTTPS sites (like Vercel) from connecting to HTTP LAN IP addresses. Run start-server.ps1 -Lan and open http://<laptop-ip>:8775/ on your phone.';
+        }
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
+        break;
+
       case 'unavailable':
-        badge.textContent  = 'Agent Offline';
-        badge.className    = 'badge badge--unavailable';
-        notice.textContent = 'Agent unavailable — run: node agent.js in the NETWATCH folder.';
-        scanBtn.disabled   = false;
+        badge.textContent = 'Agent Offline';
+        badge.className = 'badge badge--unavailable';
+        notice.textContent = 'Companion agent not reachable';
+        if (hint) {
+          hint.innerHTML = 'LAN discovery requires the companion agent (<code>node agent.js</code> or <code>node agent.js --lan</code>). Internet endpoints remain active.';
+        }
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
         break;
 
       case 'error':
-        badge.textContent  = 'Scan Error';
-        badge.className    = 'badge badge--error';
-        notice.textContent = `Scan failed: ${message || 'Unknown error'}`;
-        scanBtn.disabled   = false;
+        badge.textContent = 'Scan Error';
+        badge.className = 'badge badge--error';
+        notice.textContent = `Error: ${message || 'Unknown error'}`;
+        scanBtn.disabled = false;
+        refreshBtn.disabled = false;
         this.logEvent('error', `LAN scan failed: ${message}`);
         break;
     }
+  }
+
+  _renderScanDiffStrip(changes, lastScanTs) {
+    const el = document.getElementById('topology-diff-strip');
+    if (!el) return;
+    if (!changes && !lastScanTs) {
+      el.classList.add('hidden');
+      return;
+    }
+    const parts = [];
+    if (lastScanTs) {
+      parts.push(`<span>Last discovery: <strong class="mono-val">${escapeHtml(formatDateTime(lastScanTs))}</strong></span>`);
+    }
+    if (changes) {
+      if (changes.appeared?.length) {
+        parts.push(`<span class="badge badge--actual">+${changes.appeared.length} appeared</span>`);
+      }
+      if (changes.returned?.length) {
+        parts.push(`<span class="badge badge--estimated">↺ ${changes.returned.length} returned</span>`);
+      }
+      if (changes.disappeared?.length) {
+        parts.push(`<span class="badge badge--error">-${changes.disappeared.length} disappeared</span>`);
+      }
+      if (!changes.appeared?.length && !changes.returned?.length && !changes.disappeared?.length) {
+        parts.push('<span class="badge badge--unavailable">No topology changes since prior scan</span>');
+      }
+    }
+    el.innerHTML = parts.join('');
+    el.classList.remove('hidden');
   }
 
   _renderDeviceList(devices) {
     const el = document.getElementById('topology-device-list');
     if (!el) return;
     if (!devices || devices.length === 0) {
-      el.innerHTML = '<div class="empty-state" style="font-size:12px;">No devices discovered.</div>';
+      el.innerHTML = '<div class="empty-state" style="font-size:12px;">No devices discovered yet. Click Scan Network.</div>';
       return;
     }
 
@@ -964,34 +1108,226 @@ class NetwatchApp {
     el.innerHTML = devices.map((d) => {
       const icon = TYPE_ICON[d.type] || '❓';
       const label = d.hostname || d.ip;
-      const sub   = d.vendor !== 'Unknown' ? d.vendor : d.ip;
-      const statusColor = d.status === 'online' ? '#16a34a' : '#dc2626';
+      const isOnline = d.status === 'online';
+      const rttStr = isOnline && typeof d.rttMs === 'number'
+        ? ` · ${d.rttMs < 1 ? '<1 ms' : `${d.rttMs.toFixed(0)} ms`}`
+        : '';
+      const vendorPart = d.vendor && d.vendor !== 'Unknown' && d.vendor !== 'Unavailable' ? d.vendor : d.ip;
+      const sub = isOnline ? `${d.ip} · ${vendorPart}${rttStr}` : `${d.ip} · Offline`;
+      const statusColor = isOnline ? '#10b981' : '#ef4444';
       return `
-        <div class="cap-item" style="cursor:pointer;padding:6px 4px;border-radius:6px;" data-device-ip="${escapeHtml(d.ip)}">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:18px;">${icon}</span>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:#f3f4f6;">${escapeHtml(label)}</div>
-              <div style="font-size:11px;color:#9ca3af;">${escapeHtml(sub)}</div>
-            </div>
-            <span style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
+        <div class="device-row ${isOnline ? '' : 'device-row--offline'}" data-device-ip="${escapeHtml(d.ip)}" role="button" tabindex="0" title="Click to inspect ${escapeHtml(d.ip)}">
+          <span style="font-size:18px;flex-shrink:0;">${icon}</span>
+          <div class="device-row-main">
+            <div class="device-row-name">${escapeHtml(label)}</div>
+            <div class="device-row-sub">${escapeHtml(sub)}</div>
           </div>
+          <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};flex-shrink:0;" title="${isOnline ? 'Online' : 'Offline'}"></span>
         </div>
       `;
     }).join('');
+  }
 
-    // Click on device list item → select node on canvas
-    el.addEventListener('click', (e) => {
-      const item = e.target.closest('[data-device-ip]');
-      if (!item) return;
-      const ip = item.dataset.deviceIp;
-      const nodeId = `lan-${ip.replace(/\./g, '-')}`;
-      const node = this.networkMap.nodes.find((n) => n.id === nodeId);
-      if (node) {
-        this.networkMap.selectedNodeId = nodeId;
-        this.networkMap._renderInspector(node);
+  _openDeviceDetailsModal(node) {
+    const dialog = document.getElementById('device-details-dialog');
+    const iconEl = document.getElementById('device-modal-icon');
+    const titleEl = document.getElementById('device-modal-title');
+    const subEl = document.getElementById('device-modal-subtitle');
+    const statusPill = document.getElementById('device-modal-status-pill');
+    const infoGrid = document.getElementById('device-modal-info-grid');
+    const diagSection = document.getElementById('device-modal-diag-section');
+    const diagContent = document.getElementById('device-modal-diag-content');
+    const diagBtn = document.getElementById('device-run-diag-btn');
+    const histSection = document.getElementById('device-modal-history-section');
+    const histList = document.getElementById('device-modal-history-list');
+    const seenMeta = document.getElementById('device-modal-seen-meta');
+    const provBox = document.getElementById('device-modal-provenance');
+
+    iconEl.textContent = node.icon || '💻';
+    titleEl.textContent = node.label || 'Node Details';
+
+    // Case 1: Discovered LAN device (including This Device / Router when agent discovered it)
+    if (node.device) {
+      const d = node.device;
+      this._activeInspectedIp = d.ip;
+      const isOnline = d.status === 'online';
+      subEl.textContent = `${d.ip}${d.mac && d.mac !== 'Unavailable' ? ` · ${d.mac}` : ''}`;
+
+      statusPill.className = `status-pill ${isOnline ? 'status-pill--online' : 'status-pill--offline'}`;
+      statusPill.innerHTML = `<span class="status-dot"></span><span>${isOnline ? 'ONLINE' : 'OFFLINE'}</span>`;
+
+      const typeBadge = d.typeEstimated !== false
+        ? `<span class="badge badge--estimated" style="margin-left:6px;">ESTIMATED</span>`
+        : `<span class="badge badge--actual" style="margin-left:6px;">CONFIRMED</span>`;
+
+      const cells = [
+        { label: 'Local IP Address', value: escapeHtml(d.ip) },
+        { label: 'MAC Address', value: escapeHtml(d.mac || 'Unavailable') },
+        { label: 'Hostname (Reverse DNS)', value: escapeHtml(d.hostname || 'Unresolved') },
+        { label: 'Manufacturer / Vendor (OUI)', value: escapeHtml(d.vendor || 'Unknown') },
+        { label: 'Device Type', value: `${escapeHtml(d.type || 'unknown')}${typeBadge}`, rawHtml: true },
+        { label: 'Response Time (ICMP RTT)', value: typeof d.rttMs === 'number' ? escapeHtml(formatMs(d.rttMs)) : 'Not measured' },
+        { label: 'First Discovered', value: d.firstDiscovered ? escapeHtml(formatDateTime(d.firstDiscovered)) : '—' },
+        { label: 'Last Seen', value: d.lastSeen ? escapeHtml(formatDateTime(d.lastSeen)) : '—' },
+        { label: 'Default Gateway', value: escapeHtml(d.gateway || this.networkMap.subnetInfo?.gateway || 'Unavailable') },
+        { label: 'Local Subnet', value: escapeHtml(d.subnet || this.networkMap.subnetInfo?.cidr || 'Unavailable') }
+      ];
+
+      infoGrid.innerHTML = cells.map((c) => `
+        <div class="detail-cell">
+          <div class="detail-cell-label">${c.label}</div>
+          <div class="detail-cell-value">${c.rawHtml ? c.value : c.value}</div>
+        </div>
+      `).join('');
+
+      diagSection.classList.remove('hidden');
+      histSection.classList.remove('hidden');
+      diagBtn.disabled = false;
+
+      this._renderDeviceHistoryEvents(d.events || [], d.seenCount, this.networkMap.lastSuccessfulScanAt, histList, seenMeta);
+
+      provBox.innerHTML = `<strong>Measurement Transparency:</strong> ${escapeHtml(d.typeReason || 'Device type derived from local metadata.')} OS and hardware model are never claimed without reliable evidence. Only authorized connectivity checks on your local subnet are performed.`;
+
+      if (!dialog.open) dialog.showModal();
+
+      // Automatically run live reachability & TCP port inspection if agent is online
+      if (this.networkMap.agentStatus === 'online') {
+        this._runLiveDeviceDiagnostics(d.ip);
+      } else {
+        diagContent.innerHTML = `<div class="empty-state" style="padding:14px;">Local Agent is currently unavailable. Start <code>node agent.js</code> (or authenticate in Agent Settings) to run live reachability and TCP port diagnostics.</div>`;
       }
-    });
+      return;
+    }
+
+    // Case 2: Non-LAN node (Illustrative Gateway, Client without agent, or Monitored HTTP Endpoint)
+    this._activeInspectedIp = null;
+    subEl.textContent = node.provenance === 'ILLUSTRATIVE' ? 'Illustrative Transit Hop' : (node.endpoint?.url || 'Browser Telemetry');
+    statusPill.className = `status-pill ${node.status === 'ok' ? 'status-pill--online' : node.status === 'error' ? 'status-pill--offline' : 'status-pill--degraded'}`;
+    statusPill.innerHTML = `<span class="status-dot"></span><span>${escapeHtml(String(node.status || 'info').toUpperCase())}</span>`;
+
+    infoGrid.innerHTML = Object.entries(node.meta || {}).map(([k, v]) => `
+      <div class="detail-cell">
+        <div class="detail-cell-label">${escapeHtml(k)}</div>
+        <div class="detail-cell-value">${escapeHtml(String(v))}</div>
+      </div>
+    `).join('');
+
+    diagSection.classList.add('hidden');
+    histSection.classList.add('hidden');
+
+    if (node.provenance === 'ILLUSTRATIVE') {
+      provBox.innerHTML = '<strong>Local Agent Required:</strong> Browsers cannot directly read LAN ARP tables or router gateways. Start <code>node agent.js</code> (or <code>node agent.js --lan</code>) and click <strong>Scan Network</strong> to inspect real local devices.';
+    } else {
+      provBox.innerHTML = '<strong>Browser HTTP Telemetry:</strong> Measurements reflect actual Fetch API round-trip timings from this browser to the configured HTTPS endpoint.';
+    }
+
+    if (!dialog.open) dialog.showModal();
+  }
+
+  async _runLiveDeviceDiagnostics(ip) {
+    const diagContent = document.getElementById('device-modal-diag-content');
+    const diagBtn = document.getElementById('device-run-diag-btn');
+    const histList = document.getElementById('device-modal-history-list');
+    const seenMeta = document.getElementById('device-modal-seen-meta');
+    const statusPill = document.getElementById('device-modal-status-pill');
+
+    diagBtn.disabled = true;
+    diagBtn.textContent = 'Inspecting…';
+    diagContent.innerHTML = '<div class="empty-state" style="padding:14px;">Running live ICMP reachability (3 probes), ARP/DNS refresh, and authorized common TCP port checks…</div>';
+
+    try {
+      const report = await this.networkMap.inspectDevice(ip, true);
+      const reach = report.reachability || {};
+      const isOnline = report.status === 'online';
+
+      statusPill.className = `status-pill ${isOnline ? 'status-pill--online' : 'status-pill--offline'}`;
+      statusPill.innerHTML = `<span class="status-dot"></span><span>${isOnline ? 'ONLINE' : 'OFFLINE'}</span>`;
+
+      const rttSummary = reach.avgRttMs !== null && reach.avgRttMs !== undefined
+        ? `Avg ${formatMs(reach.avgRttMs)} (Min ${formatMs(reach.minRttMs)} / Max ${formatMs(reach.maxRttMs)})`
+        : (reach.reachable ? 'TCP reachable (ICMP blocked/no reply)' : 'No ICMP or TCP reply');
+
+      const openPorts = report.ports?.openPorts || [];
+      const portsHtml = openPorts.length > 0
+        ? `<div class="ports-grid">${openPorts.map((p) => `
+            <span class="port-chip">
+              <strong>${p.port}/tcp</strong> ${escapeHtml(p.service)}
+              ${p.rttMs !== null ? `<span class="port-chip-rtt">${p.rttMs} ms</span>` : ''}
+            </span>
+          `).join('')}</div>`
+        : `<div class="muted-label" style="margin-top:8px;font-size:12px;">No open ports found among the ${report.ports?.checkedCount || 12} common local service ports checked (device firewall may filter them).</div>`;
+
+      diagContent.innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <div class="detail-cell-label">Live Reachability</div>
+            <div class="detail-cell-value">${reach.reachable ? 'Reachable' : 'Unreachable'} (${reach.probesReceived || 0}/${reach.probesSent || 3} ICMP replies)</div>
+          </div>
+          <div class="detail-cell">
+            <div class="detail-cell-label">Measured Response Time</div>
+            <div class="detail-cell-value">${escapeHtml(rttSummary)}</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="detail-cell-label">Confirmed Open Common TCP Ports (${openPorts.length} of ${report.ports?.checkedCount || 12} checked)</div>
+          ${portsHtml}
+        </div>
+      `;
+
+      // Refresh history and sidebar list with updated inspection data
+      if (report.history) {
+        this._renderDeviceHistoryEvents(
+          report.history.events || [],
+          report.history.seenCount,
+          report.lastSuccessfulScanAt,
+          histList,
+          seenMeta
+        );
+      }
+      this._renderDeviceList(this.networkMap.getAllKnownDevices());
+    } catch (err) {
+      diagContent.innerHTML = `
+        <div class="empty-state" style="padding:14px;border-color:rgba(239,68,68,0.4);color:#fca5a5;">
+          <strong>Inspection Unavailable:</strong> ${escapeHtml(err?.message || 'Could not reach agent.')}
+        </div>
+      `;
+    } finally {
+      diagBtn.disabled = false;
+      diagBtn.textContent = 'Run Live Inspection';
+    }
+  }
+
+  _renderDeviceHistoryEvents(events, seenCount, lastSuccessScanAt, listEl, metaEl) {
+    if (metaEl) {
+      const parts = [];
+      if (seenCount) parts.push(`Seen in ${seenCount} scan${seenCount !== 1 ? 's' : ''}`);
+      if (lastSuccessScanAt) parts.push(`Last discovery: ${formatDateTime(lastSuccessScanAt)}`);
+      metaEl.textContent = parts.join(' · ') || '—';
+    }
+    if (!listEl) return;
+    if (!events || events.length === 0) {
+      listEl.innerHTML = '<div class="empty-state" style="padding:12px;">No state transitions recorded yet.</div>';
+      return;
+    }
+
+    listEl.innerHTML = events.map((ev) => {
+      const badgeClass = ev.type === 'disappeared'
+        ? 'badge--error'
+        : ev.type === 'returned'
+          ? 'badge--estimated'
+          : ev.type === 'ip_changed'
+            ? 'badge--warn'
+            : 'badge--actual';
+      return `
+        <div class="history-event-row">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <span class="badge ${badgeClass}">${escapeHtml(ev.type)}</span>
+            <span style="color:var(--text-primary);">${escapeHtml(ev.detail || '')}</span>
+          </div>
+          <span class="event-time" style="flex-shrink:0;">${escapeHtml(formatDateTime(ev.timestamp))}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   _syncTopology() {
@@ -1116,69 +1452,6 @@ class NetwatchApp {
     });
   }
 
-  /* ---------------- Alerts UI ---------------- */
-  _initAlertsUI() {
-    const latInput = document.getElementById('alert-latency-max');
-    const jitInput = document.getElementById('alert-jitter-max');
-    const lossInput = document.getElementById('alert-loss-max');
-    const coolInput = document.getElementById('alert-cooldown-sec');
-    const discCheck = document.getElementById('alert-notify-disconnect');
-    const browCheck = document.getElementById('alert-notify-browser');
-
-    const syncInputs = () => {
-      latInput.value = String(this.settings.alerts.latencyMaxMs);
-      jitInput.value = String(this.settings.alerts.jitterMaxMs);
-      lossInput.value = String(this.settings.alerts.failureRateMaxPct);
-      coolInput.value = String(this.settings.alerts.cooldownSec);
-      discCheck.checked = this.settings.alerts.notifyDisconnect;
-      browCheck.checked = this.settings.alerts.notifyBrowser;
-    };
-    syncInputs();
-
-    document.getElementById('alert-thresholds-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.settings.alerts = {
-        latencyMaxMs: Math.max(20, Number(latInput.value) || 200),
-        jitterMaxMs: Math.max(5, Number(jitInput.value) || 50),
-        failureRateMaxPct: Math.max(1, Math.min(100, Number(lossInput.value) || 20)),
-        cooldownSec: Math.max(5, Number(coolInput.value) || 30),
-        notifyDisconnect: discCheck.checked,
-        notifyBrowser: browCheck.checked
-      };
-      saveSettings(this.settings);
-      this.alerts.configure(this.settings.alerts, this.settings.persistDb);
-      showToast('Alert rules saved.', 'ok');
-    });
-
-    document.getElementById('request-notif-btn').addEventListener('click', async () => {
-      const res = await this.alerts.requestNotificationPermission();
-      if (!res.supported) {
-        showToast('Web Notifications API not supported in this browser.', 'warn');
-      } else if (res.permission === 'granted') {
-        browCheck.checked = true;
-        this.settings.alerts.notifyBrowser = true;
-        saveSettings(this.settings);
-        this.alerts.configure(this.settings.alerts, this.settings.persistDb);
-        showToast('Browser notifications enabled.', 'ok');
-      } else {
-        showToast(`Notification permission: ${res.permission}`, 'warn');
-      }
-    });
-
-    document.getElementById('clear-alerts-btn').addEventListener('click', async () => {
-      await this.alerts.clearAll();
-      this.alerts.renderFeed(document.getElementById('alerts-feed'));
-      showToast('Alert feed cleared.', 'info');
-    });
-  }
-
-  _updateAlertBadge(count) {
-    const badge = document.getElementById('sidebar-alert-badge');
-    if (!badge) return;
-    badge.textContent = String(count);
-    badge.classList.toggle('hidden', count <= 0);
-  }
-
   /* ---------------- Settings & Capabilities ---------------- */
   _initSettingsUI() {
     const pollInput = document.getElementById('setting-poll-interval');
@@ -1213,7 +1486,6 @@ class NetwatchApp {
       this.networkMonitor.setPersistEnabled(this.settings.persistDb);
       this.speedTest.setPersistEnabled(this.settings.persistDb);
       this.analytics.setUseWorker(this.settings.useWorker);
-      this.alerts.configure(this.settings.alerts, this.settings.persistDb);
 
       showToast('Platform settings applied.', 'ok');
       this._renderCapabilities();
@@ -1235,11 +1507,125 @@ class NetwatchApp {
     document.getElementById('purge-db-btn').addEventListener('click', async () => {
       await storage.purgeAll();
       this._renderSpeedHistory([]);
-      this.alerts.alerts = [];
-      this.alerts.renderFeed(document.getElementById('alerts-feed'));
       this._renderCapabilities();
       showToast('Local IndexedDB history purged.', 'warn');
     });
+
+    // Local Discovery Agent Connection Settings
+    this._initAgentSettingsUI();
+  }
+
+  _initAgentSettingsUI() {
+    const hostInput = document.getElementById('agent-host-input');
+    const portInput = document.getElementById('agent-port-input');
+    const tokenInput = document.getElementById('agent-token-input');
+    const rememberCheck = document.getElementById('agent-remember-token');
+    const toggleBtn = document.getElementById('agent-token-toggle-btn');
+
+    const loadAgentForm = () => {
+      const cfg = this.settings.agent || { host: '127.0.0.1', port: 7779, rememberToken: false };
+      hostInput.value = cfg.host || '127.0.0.1';
+      portInput.value = String(cfg.port || 7779);
+      rememberCheck.checked = Boolean(cfg.rememberToken);
+      tokenInput.value = loadAgentToken(cfg.rememberToken);
+      const urlEl = document.getElementById('settings-agent-url');
+      if (urlEl) urlEl.textContent = `http://${hostInput.value}:${portInput.value}`;
+    };
+    loadAgentForm();
+
+    toggleBtn.addEventListener('click', () => {
+      const hidden = tokenInput.type === 'password';
+      tokenInput.type = hidden ? 'text' : 'password';
+      toggleBtn.textContent = hidden ? 'Hide' : 'Show';
+    });
+
+    document.getElementById('agent-settings-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const host = hostInput.value.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '') || '127.0.0.1';
+      const port = Math.max(1024, Math.min(65535, Number(portInput.value) || 7779));
+      const token = tokenInput.value.trim();
+      const rememberToken = rememberCheck.checked;
+
+      // Validate host (allow localhost, IPv4, or local hostname without spaces)
+      if (!/^[a-zA-Z0-9.-]+$/.test(host)) {
+        showToast('Enter a valid local IPv4 address or hostname (e.g. 127.0.0.1 or 192.168.1.42).', 'error');
+        return;
+      }
+
+      this.settings.agent = { host, port, rememberToken };
+      saveSettings(this.settings);
+      saveAgentToken(token, rememberToken);
+
+      this.networkMap.configureAgent({ host, port, token });
+      document.getElementById('settings-agent-url').textContent = this.networkMap.getAgentBaseUrl();
+
+      const btn = document.getElementById('agent-connect-btn');
+      btn.disabled = true;
+      btn.textContent = 'Testing…';
+      try {
+        await this.networkMap.checkAgent();
+        if (this.networkMap.agentStatus === 'online') {
+          await this.networkMap.fetchCachedDevices();
+          showToast(`Connected to NETWATCH Agent at ${this.networkMap.getAgentBaseUrl()}`, 'ok');
+        } else if (this.networkMap.agentStatus === 'auth_required') {
+          showToast('Agent reached, but Access Token was missing or invalid.', 'warn');
+        } else if (this.networkMap.agentStatus === 'mixed_content') {
+          showToast('HTTPS page cannot connect to HTTP LAN IP. Serve NETWATCH with start-server.ps1 -Lan.', 'warn');
+        } else {
+          showToast(`Could not reach agent at ${this.networkMap.getAgentBaseUrl()}. Check agent & firewall.`, 'error');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save & Test Connection';
+      }
+    });
+
+    document.getElementById('agent-reset-localhost-btn').addEventListener('click', async () => {
+      this.settings.agent = { host: '127.0.0.1', port: 7779, rememberToken: false };
+      saveSettings(this.settings);
+      saveAgentToken('', false);
+      loadAgentForm();
+      this.networkMap.configureAgent({ host: '127.0.0.1', port: 7779, token: '' });
+      await this.networkMap.checkAgent();
+      showToast('Agent connection reset to localhost (127.0.0.1:7779).', 'info');
+    });
+
+    document.getElementById('agent-open-map-btn').addEventListener('click', () => {
+      this.switchView('topology');
+    });
+  }
+
+  _syncAgentSettingsStatus(status, info) {
+    const badge = document.getElementById('settings-agent-status-badge');
+    const urlEl = document.getElementById('settings-agent-url');
+    const ipEl = document.getElementById('settings-agent-local-ip');
+    const modeEl = document.getElementById('settings-agent-mode');
+    const gwEl = document.getElementById('settings-agent-gateway');
+    if (!badge) return;
+
+    if (urlEl && this.networkMap) urlEl.textContent = this.networkMap.getAgentBaseUrl();
+
+    if (status === 'idle' || status === 'done' || status === 'refreshed' || status === 'scanning') {
+      badge.className = 'badge badge--actual';
+      badge.textContent = info?.version ? `Connected · v${info.version}` : 'Connected';
+      if (ipEl) ipEl.textContent = info?.localIp ? `${info.localIp}${info.cidr ? ` (${info.cidr})` : ''}` : '—';
+      if (modeEl) modeEl.textContent = info?.mode === 'lan' ? 'Secure LAN (Token Auth)' : 'Localhost Only (127.0.0.1)';
+      if (gwEl) gwEl.textContent = info?.gateway || '—';
+    } else if (status === 'auth_required') {
+      badge.className = 'badge badge--warn';
+      badge.textContent = 'Auth Required';
+      if (modeEl) modeEl.textContent = 'Secure LAN (Token Required)';
+    } else if (status === 'mixed_content') {
+      badge.className = 'badge badge--warn';
+      badge.textContent = 'Blocked (HTTPS→HTTP)';
+      if (modeEl) modeEl.textContent = 'Serve dashboard over HTTP on LAN';
+    } else {
+      badge.className = 'badge badge--unavailable';
+      badge.textContent = 'Offline / Unreachable';
+      if (ipEl) ipEl.textContent = '—';
+      if (modeEl) modeEl.textContent = 'Not connected';
+      if (gwEl) gwEl.textContent = '—';
+    }
   }
 
   async _renderCapabilities() {
@@ -1268,13 +1654,13 @@ class NetwatchApp {
     document.getElementById('shortcuts-btn').addEventListener('click', () => dialog.showModal());
     document.getElementById('close-shortcuts-btn').addEventListener('click', () => dialog.close());
 
-    const viewKeys = ['overview', 'speedtest', 'latency', 'topology', 'diagnostics', 'analytics', 'alerts', 'settings'];
+    const viewKeys = ['overview', 'speedtest', 'latency', 'topology', 'diagnostics', 'analytics', 'settings'];
 
     window.addEventListener('keydown', (e) => {
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      if (e.key >= '1' && e.key <= '8') {
+      if (e.key >= '1' && e.key <= '7') {
         this.switchView(viewKeys[Number(e.key) - 1]);
       } else if (e.key === '[') {
         document.getElementById('sidebar-collapse-btn').click();

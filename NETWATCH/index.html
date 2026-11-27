@@ -86,22 +86,13 @@
         <span class="nav-kbd">6</span>
       </button>
 
-      <button class="nav-item" data-view="alerts" type="button">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        <span class="nav-label">Alerts</span>
-        <span id="sidebar-alert-badge" class="nav-badge hidden">0</span>
-      </button>
-
       <button class="nav-item" data-view="settings" type="button">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
         <span class="nav-label">Settings</span>
-        <span class="nav-kbd">8</span>
+        <span class="nav-kbd">7</span>
       </button>
     </nav>
 
@@ -303,7 +294,7 @@
             <div class="panel-header">
               <div>
                 <h2 class="panel-title">Live Event Log</h2>
-                <p class="panel-subtitle">Connectivity changes, probes, alerts &amp; tests</p>
+                <p class="panel-subtitle">Connectivity changes, probes &amp; tests</p>
               </div>
               <button id="clear-event-log-btn" class="btn btn-ghost btn-xs" type="button">Clear</button>
             </div>
@@ -518,33 +509,36 @@
             <div class="panel-header">
               <div>
                 <h2 class="panel-title">Interactive Network Map</h2>
-                <p class="panel-subtitle">Live LAN device discovery + internet endpoint monitoring</p>
+                <p class="panel-subtitle">Live LAN device discovery, device inspection &amp; internet endpoint monitoring</p>
               </div>
               <div class="panel-actions">
                 <span id="topology-agent-badge" class="badge badge--unavailable">Agent Offline</span>
                 <span id="topology-device-count" class="badge badge--estimated" style="display:none">0 Devices</span>
-                <button id="topology-scan-btn" class="btn btn-primary btn-xs" type="button" title="Scan local network for devices">Scan Network</button>
+                <button id="topology-scan-btn" class="btn btn-primary btn-xs" type="button" title="Run full ARP/ICMP scan on local subnet">Scan Network</button>
+                <button id="topology-refresh-btn" class="btn btn-secondary btn-xs" type="button" title="Refresh cached devices from agent">Refresh</button>
+                <button id="topology-agent-settings-btn" class="btn btn-ghost btn-xs" type="button" title="Configure Local or LAN Agent connection">Agent Settings</button>
                 <button id="topology-reset-btn" class="btn btn-ghost btn-xs" type="button">Reset View</button>
               </div>
             </div>
 
             <!-- Agent notice banner -->
-            <div id="topology-agent-notice" class="info-banner" role="note" style="margin-bottom:0;border-radius:0;">
-              <div class="info-banner-content" style="flex-wrap:nowrap;gap:10px;">
+            <div id="topology-agent-notice" class="info-banner" role="note" style="margin-bottom:0;border-radius:var(--radius-sm) var(--radius-sm) 0 0;">
+              <div class="info-banner-content" style="gap:10px;">
                 <span class="badge badge--warn">LOCAL AGENT</span>
-                <span style="font-size:12px;">LAN device discovery requires the companion agent.
-                  Run <code style="background:#1f2937;padding:2px 6px;border-radius:4px;font-size:11px;">node agent.js</code> in the NETWATCH folder.
-                  Internet endpoints display without the agent.
-                </span>
+                <span id="topology-agent-hint" style="font-size:12px;">LAN discovery &amp; device inspection require the companion agent (<code style="background:#1f2937;padding:2px 6px;border-radius:4px;font-size:11px;">node agent.js</code> or <code style="background:#1f2937;padding:2px 6px;border-radius:4px;font-size:11px;">node agent.js --lan</code>). Click any node to inspect.</span>
               </div>
               <span id="topology-scan-status" class="mono-val" style="font-size:11px;white-space:nowrap;color:var(--text-muted);">Checking agent…</span>
             </div>
 
-            <div class="topology-stage">
+            <!-- Scan Diff / History Strip -->
+            <div id="topology-diff-strip" class="scan-diff-strip hidden" aria-live="polite"></div>
+
+            <div class="topology-stage" style="border-top-left-radius:0;border-top-right-radius:0;">
               <canvas id="network-map-canvas" aria-label="Interactive network topology canvas"></canvas>
               <div class="topology-legend">
-                <span><i class="legend-dot legend-dot--actual"></i> LAN Device (Real)</span>
-                <span><i class="legend-dot" style="background:#16a34a;box-shadow:0 0 6px #16a34a66;"></i> LAN Link</span>
+                <span><i class="legend-dot" style="background:#10b981;"></i> LAN Device (Online)</span>
+                <span><i class="legend-dot" style="background:#64748b;"></i> LAN Device (Offline)</span>
+                <span><i class="legend-dot legend-dot--actual"></i> Internet Endpoint</span>
                 <span><i class="legend-dot legend-dot--inferred"></i> Illustrative Hop</span>
                 <span><i class="legend-dot legend-dot--error"></i> Degraded / Unreachable</span>
               </div>
@@ -556,7 +550,7 @@
               <h2 class="panel-title">Node Inspector</h2>
             </div>
             <div id="topology-node-details" class="inspector-body">
-              <div class="empty-state">Click any node on the map to see device details.</div>
+              <div class="empty-state">Click any node on the map to open detailed device inspection, reachability, open ports, and history.</div>
             </div>
 
             <!-- Discovered devices list -->
@@ -564,8 +558,8 @@
               <h3 class="panel-title" style="font-size:13px;">Discovered Devices</h3>
               <span id="topology-last-scan" class="muted-label" style="font-size:11px;">—</span>
             </div>
-            <div id="topology-device-list" class="inspector-body" style="padding-top:4px;">
-              <div class="empty-state" style="font-size:12px;">Run a scan to discover LAN devices.</div>
+            <div id="topology-device-list" class="inspector-body" style="padding-top:4px;max-height:300px;overflow-y:auto;">
+              <div class="empty-state" style="font-size:12px;">Run a scan to discover LAN devices. Click any device to inspect.</div>
             </div>
           </aside>
         </div>
@@ -677,65 +671,6 @@
         </div>
       </section>
 
-      <!-- VIEW: ALERTS -->
-      <section id="view-alerts" class="view-panel" aria-label="Monitoring Alerts" hidden>
-        <div class="dashboard-grid">
-          <section class="panel">
-            <div class="panel-header">
-              <div>
-                <h2 class="panel-title">Alert Thresholds</h2>
-                <p class="panel-subtitle">Trigger visual, log, and optional browser notifications</p>
-              </div>
-              <button id="request-notif-btn" class="btn btn-secondary btn-xs" type="button">Enable Browser Notifications</button>
-            </div>
-            <form id="alert-thresholds-form" class="form-stack">
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="alert-latency-max">High Latency Threshold (ms)</label>
-                  <input id="alert-latency-max" class="input mono-val" type="number" min="20" max="5000" value="200" />
-                </div>
-                <div class="form-group">
-                  <label for="alert-jitter-max">Excessive Jitter Threshold (ms)</label>
-                  <input id="alert-jitter-max" class="input mono-val" type="number" min="5" max="2000" value="50" />
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="alert-loss-max">Failure Rate Threshold (%)</label>
-                  <input id="alert-loss-max" class="input mono-val" type="number" min="1" max="100" value="20" />
-                </div>
-                <div class="form-group">
-                  <label for="alert-cooldown-sec">Alert Cooldown (seconds)</label>
-                  <input id="alert-cooldown-sec" class="input mono-val" type="number" min="5" max="600" value="30" />
-                </div>
-              </div>
-              <label class="checkbox-row">
-                <input id="alert-notify-disconnect" type="checkbox" checked />
-                <span>Alert on internet disconnection / recovery</span>
-              </label>
-              <label class="checkbox-row">
-                <input id="alert-notify-browser" type="checkbox" />
-                <span>Send desktop notifications when permitted</span>
-              </label>
-              <button class="btn btn-primary btn-sm" type="submit">Save Alert Rules</button>
-            </form>
-          </section>
-
-          <section class="panel">
-            <div class="panel-header">
-              <div>
-                <h2 class="panel-title">Triggered Alerts</h2>
-                <p class="panel-subtitle">Active and historical alert events</p>
-              </div>
-              <button id="clear-alerts-btn" class="btn btn-ghost btn-xs" type="button">Clear All</button>
-            </div>
-            <div id="alerts-feed" class="alerts-feed">
-              <div class="empty-state">No alerts triggered. All monitored thresholds are nominal.</div>
-            </div>
-          </section>
-        </div>
-      </section>
-
       <!-- VIEW: SETTINGS -->
       <section id="view-settings" class="view-panel" aria-label="Platform Settings" hidden>
         <div class="dashboard-grid">
@@ -789,10 +724,139 @@
               <button id="purge-db-btn" class="btn btn-danger btn-sm" type="button">Purge Local IndexedDB History</button>
             </div>
           </section>
+
+          <section class="panel panel--wide" id="agent-connection-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Local Discovery Agent Connection</h2>
+                <p class="panel-subtitle">Connect to NETWATCH Agent on localhost (127.0.0.1) or securely from another device on the same Wi-Fi</p>
+              </div>
+              <span id="settings-agent-status-badge" class="badge badge--unavailable">Checking…</span>
+            </div>
+
+            <div class="dashboard-grid">
+              <div>
+                <div class="agent-status-grid">
+                  <div class="detail-cell">
+                    <div class="detail-cell-label">Agent Endpoint</div>
+                    <div id="settings-agent-url" class="detail-cell-value">http://127.0.0.1:7779</div>
+                  </div>
+                  <div class="detail-cell">
+                    <div class="detail-cell-label">Detected Local IP / Subnet</div>
+                    <div id="settings-agent-local-ip" class="detail-cell-value">—</div>
+                  </div>
+                  <div class="detail-cell">
+                    <div class="detail-cell-label">Agent Mode</div>
+                    <div id="settings-agent-mode" class="detail-cell-value">—</div>
+                  </div>
+                  <div class="detail-cell">
+                    <div class="detail-cell-label">Default Gateway</div>
+                    <div id="settings-agent-gateway" class="detail-cell-value">—</div>
+                  </div>
+                </div>
+
+                <form id="agent-settings-form" class="form-stack">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="agent-host-input">Agent Host / Laptop IPv4</label>
+                      <input id="agent-host-input" class="input mono-val" type="text" value="127.0.0.1" placeholder="127.0.0.1 or 192.168.1.42" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="agent-port-input">Agent Port</label>
+                      <input id="agent-port-input" class="input mono-val" type="number" min="1024" max="65535" value="7779" required />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="agent-token-input">Access Token (required when connecting over LAN)</label>
+                    <div class="input-action-row">
+                      <input id="agent-token-input" class="input mono-val" type="password" autocomplete="off" placeholder="Paste token printed by: node agent.js --lan" />
+                      <button id="agent-token-toggle-btn" class="btn btn-ghost btn-sm" type="button">Show</button>
+                    </div>
+                  </div>
+                  <label class="checkbox-row">
+                    <input id="agent-remember-token" type="checkbox" />
+                    <span>Remember access token in this browser's local storage (unchecked = cleared when tab closes)</span>
+                  </label>
+                  <div class="form-actions">
+                    <button id="agent-connect-btn" class="btn btn-primary btn-sm" type="submit">Save &amp; Test Connection</button>
+                    <button id="agent-reset-localhost-btn" class="btn btn-secondary btn-sm" type="button">Reset to Localhost</button>
+                    <button id="agent-open-map-btn" class="btn btn-ghost btn-sm" type="button">Open Network Map</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="form-stack">
+                <div class="detail-cell">
+                  <div class="detail-cell-label">1. Host Laptop Only (Default — Most Secure)</div>
+                  <div class="code-block">node agent.js</div>
+                  <p style="margin:6px 0 0;font-size:11.5px;color:var(--text-muted);">Binds exclusively to <code>127.0.0.1:7779</code>. No firewall change needed.</p>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-cell-label">2. Connect From a Phone / Tablet on the Same Wi-Fi</div>
+                  <div class="code-block">node agent.js --lan
+powershell -ExecutionPolicy Bypass -File start-server.ps1 -Lan</div>
+                  <p style="margin:6px 0 0;font-size:11.5px;color:var(--text-muted);">
+                    Open <code>http://&lt;laptop-ip&gt;:8775/</code> on your phone (serving over HTTP avoids browser HTTPS→HTTP mixed-content blocks), enter the laptop IPv4 and random Access Token above, and tap <strong>Save &amp; Test Connection</strong>.
+                  </p>
+                </div>
+                <div class="provenance-box" style="margin-top:0;">
+                  <strong>Security &amp; Network Notes:</strong> LAN mode never runs without a random token and rejects any client IP outside your local subnet. Never expose port 7779 to the public internet. If a phone cannot reach the laptop, verify Windows Firewall allows Private/LocalSubnet traffic and check that your router does not have <em>AP / Client Isolation</em> enabled.
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
     </main>
   </div>
+
+  <!-- Device Details Inspection Modal -->
+  <dialog id="device-details-dialog" class="modal modal--wide" aria-labelledby="device-modal-title">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <span id="device-modal-icon" style="font-size:22px;">💻</span>
+        <div style="min-width:0;">
+          <h2 id="device-modal-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Device Details</h2>
+          <div id="device-modal-subtitle" class="mono-val" style="font-size:11.5px;color:var(--text-muted);">—</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <span id="device-modal-status-pill" class="status-pill status-pill--online"><span class="status-dot"></span><span>ONLINE</span></span>
+        <button id="close-device-modal-btn" class="icon-btn" type="button" aria-label="Close device details">&times;</button>
+      </div>
+    </div>
+
+    <div id="device-modal-body">
+      <!-- Identity & Telemetry Grid -->
+      <div class="detail-grid" id="device-modal-info-grid"></div>
+
+      <!-- Live Reachability & TCP Port Diagnostics -->
+      <div class="modal-section" id="device-modal-diag-section">
+        <div class="modal-section-header">
+          <h3 class="modal-section-title">Live Reachability &amp; TCP Port Check</h3>
+          <button id="device-run-diag-btn" class="btn btn-primary btn-xs" type="button">Run Live Inspection</button>
+        </div>
+        <div id="device-modal-diag-content">
+          <div class="empty-state" style="padding:14px;">Click <strong>Run Live Inspection</strong> to check ICMP reachability, measured RTT, fresh ARP/DNS, and common local TCP ports.</div>
+        </div>
+      </div>
+
+      <!-- Device Discovery History -->
+      <div class="modal-section" id="device-modal-history-section">
+        <div class="modal-section-header">
+          <h3 class="modal-section-title">Discovery History &amp; Changes</h3>
+          <span id="device-modal-seen-meta" class="muted-label" style="font-size:11px;">—</span>
+        </div>
+        <div id="device-modal-history-list" class="history-event-list">
+          <div class="empty-state" style="padding:12px;">No history events recorded yet.</div>
+        </div>
+      </div>
+
+      <div class="provenance-box" id="device-modal-provenance">
+        <strong>Measurement Transparency:</strong> Device type is estimated from MAC OUI / hostname unless confirmed as the host machine or default gateway. OS and exact hardware model are never claimed without reliable evidence.
+      </div>
+    </div>
+  </dialog>
 
   <!-- Keyboard Shortcuts Modal -->
   <dialog id="shortcuts-dialog" class="modal" aria-labelledby="shortcuts-title">
@@ -801,7 +865,7 @@
       <button id="close-shortcuts-btn" class="icon-btn" type="button" aria-label="Close modal">&times;</button>
     </div>
     <div class="shortcuts-grid">
-      <div><kbd>1</kbd> – <kbd>8</kbd></div><div>Switch navigation views</div>
+      <div><kbd>1</kbd> – <kbd>7</kbd></div><div>Switch navigation views</div>
       <div><kbd>[</kbd></div><div>Collapse / expand sidebar</div>
       <div><kbd>Space</kbd></div><div>Pause / resume monitoring</div>
       <div><kbd>R</kbd></div><div>Trigger immediate probe</div>

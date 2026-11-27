@@ -1,117 +1,120 @@
 # NETWATCH — Network Intelligence & Monitoring Platform
 
-## Quick Start
+NETWATCH is a browser-based network intelligence dashboard paired with an optional, lightweight **Node.js Local Discovery & Inspection Agent** (`agent.js`). All displayed telemetry is real — never fabricated — and clearly distinguishes actual browser/agent measurements from estimated or unavailable data.
 
-### 1. Start the web server (PowerShell)
+---
+
+## Quick Start (Host Laptop — Localhost Mode)
+
+### 1. Start the Web Dashboard
 ```powershell
 powershell -ExecutionPolicy Bypass -File start-server.ps1
 ```
-Then open **http://localhost:8775/** in your browser.
+Open **http://localhost:8775/** in your browser.
 
-### 2. Enable Local Network Discovery (optional)
+### 2. Start the Local Discovery Agent (Default Localhost Mode)
+Requires **Node.js 18+** (no npm install required — zero external dependencies).
 
-LAN device discovery requires the companion **Node.js agent**.
-
-**Prerequisites:** [Node.js 18+](https://nodejs.org/)
-
-**Windows:**
-```
-double-click  start-agent.bat
-```
-or
+Double-click **`start-agent.bat`** or run:
 ```cmd
 node agent.js
 ```
+This binds strictly to **`127.0.0.1:7779`**.
 
-The agent binds to `127.0.0.1:7779` only. It never contacts the internet.
-
-Once the agent is running:
-1. Open the **Network Map** view in NETWATCH.
-2. Click **Scan Network**.
-3. The map will populate with discovered LAN devices.
+1. Go to **Network Map** in NETWATCH.
+2. Click **Scan Network** to discover devices on your local subnet.
+3. Click **any device node** (or any device in the sidebar list) to open the **Device Details Inspector** with live ICMP reachability, measured RTT, MAC/OUI vendor lookup, authorized common TCP port checks, and appearance/disappearance history.
 
 ---
 
-## Agent API Reference
+## Secure LAN Access (Connect From a Phone on the Same Wi-Fi)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Health check, agent version, local IP |
-| `/network` | GET | Local IP, subnet, CIDR, gateway, hostname |
-| `/scan` | GET | Run ARP/ping sweep — returns device list (takes ~20–40 s) |
-| `/devices` | GET | Return last cached scan result |
+By default, `agent.js` binds exclusively to `127.0.0.1` so no other device can access it. To view your laptop's scans and inspect devices from a phone or tablet on the **same Wi-Fi**:
 
-All responses are JSON. The agent enforces:
-- Localhost-only binding (`127.0.0.1`)
-- RFC-1918 subnet restriction (no internet scanning)
-- Maximum /16 subnet scan (capped at /24 in practice)
-- No credential attempts, no packet capture, no port scanning
-
----
-
-## Features
-
-| Feature | Technology | Notes |
-|---------|-----------|-------|
-| Connection status | Navigator online API | Real |
-| Public IP | ipify / Cloudflare trace | Real |
-| Download speed | Fetch streaming | Real |
-| Upload speed | XMLHttpRequest | Real |
-| Latency / Jitter | HTTP timing | Real |
-| DNS diagnostics | DNS-over-HTTPS | Real |
-| LAN device discovery | Node.js agent ARP/ping | Real (agent required) |
-| Gateway detection | ARP table + route print | Real (agent required) |
-| MAC / Vendor lookup | Bundled OUI table | Partial — top OUI prefixes |
-| Internet endpoint map | Latency monitor | Real |
-| Illustrative gateway | Canvas | ILLUSTRATIVE when no agent |
-
----
-
-## Security
-
-- The local agent **never** scans outside the detected RFC-1918 subnet.
-- It **never** sends data to any remote server.
-- It **never** attempts logins, exploits, or traffic capture.
-- All agent communication is `127.0.0.1` only.
-- The agent has no authentication — do not expose port 7779 externally.
-
----
-
-## Vercel Deployment
-
-The NETWATCH frontend deploys to Vercel without modification.
-The local agent is **not** deployed — it runs only on the user's machine.
-When the agent is unavailable (e.g., Vercel deployment), the Network Map
-displays internet endpoints and illustrative gateway nodes only.
-
----
-
-## File Structure
-
+### Step 1 — Start the Agent in Secure LAN Mode
+Double-click **`start-agent-lan.bat`** or run:
+```cmd
+node agent.js --lan
 ```
-NETWATCH/
-├── index.html          Main application shell
-├── start-server.ps1    PowerShell static file server (port 8775)
-├── agent.js            Node.js local discovery agent (port 7779)
-├── start-agent.bat     Windows double-click launcher for agent
-├── css/
-│   ├── main.css
-│   ├── components.css
-│   ├── dashboard.css
-│   └── responsive.css
-├── js/
-│   ├── app.js              Application controller
-│   ├── network-map.js      Canvas visualizer + LAN integration
-│   ├── network-monitor.js  Online/offline + public IP
-│   ├── latency-monitor.js  Endpoint probing
-│   ├── speed-test.js       Download/upload measurement
-│   ├── diagnostics.js      DNS-over-HTTPS + endpoint check
-│   ├── analytics.js        IndexedDB charts
-│   ├── alerts.js           Threshold alerting
-│   ├── settings.js         Persistent configuration
-│   ├── storage.js          IndexedDB wrapper
-│   ├── utils.js            Helpers
-│   └── chart-renderer.js   Canvas chart drawing
-└── assets/
-    └── icons/
+The terminal displays:
+- Your laptop's **Local IPv4 address** (e.g., `192.168.1.42`)
+- The **LAN URL** (`http://192.168.1.42:7779/`)
+- A randomly generated **Access Token** (required for all LAN clients)
+
+### Step 2 — Serve the Dashboard on Your LAN (Recommended for Phones)
+Modern browsers block HTTPS pages (such as a Vercel deployment) from making HTTP requests to private LAN IP addresses (*Mixed Content / Private Network Access* policy). Serving the dashboard locally over HTTP on your Wi-Fi avoids this cleanly:
+```powershell
+powershell -ExecutionPolicy Bypass -File start-server.ps1 -Lan
 ```
+Note the LAN URL printed (e.g., `http://192.168.1.42:8775/`).
+
+### Step 3 — Configure Windows Firewall Safely (Scoped to Private LocalSubnet Only)
+Run PowerShell **as Administrator** on your laptop to allow ports `7779` (agent) and `8775` (dashboard) **only on Private networks from your Local Subnet** (never on Public Wi-Fi or the internet):
+```powershell
+New-NetFirewallRule -DisplayName "NETWATCH Agent (Private LAN Only)" `
+  -Direction Inbound -Protocol TCP -LocalPort 7779 `
+  -Profile Private -RemoteAddress LocalSubnet -Action Allow
+
+New-NetFirewallRule -DisplayName "NETWATCH Dashboard (Private LAN Only)" `
+  -Direction Inbound -Protocol TCP -LocalPort 8775 `
+  -Profile Private -RemoteAddress LocalSubnet -Action Allow
+```
+To remove these rules later:
+```powershell
+Remove-NetFirewallRule -DisplayName "NETWATCH Agent (Private LAN Only)"
+Remove-NetFirewallRule -DisplayName "NETWATCH Dashboard (Private LAN Only)"
+```
+
+### Step 4 — Connect From Your Phone
+1. Ensure your phone is connected to the **exact same Wi-Fi network** as the laptop.
+2. Open `http://<laptop-ip>:8775/` in your phone's browser.
+3. Open **Settings → Local Discovery Agent Connection** (or click **Agent Settings** on the Network Map).
+4. Enter:
+   - **Agent Host / Laptop IPv4:** `<laptop-ip>` (e.g., `192.168.1.42`)
+   - **Agent Port:** `7779`
+   - **Access Token:** paste the random token printed by `node agent.js --lan`
+5. Tap **Save & Test Connection**, then open **Network Map** and tap **Scan Network** or **Refresh**.
+
+### Router AP / Client Isolation Restrictions
+If your phone cannot reach the laptop even after configuring Windows Firewall:
+- Many guest Wi-Fi networks, campus/hotel Wi-Fi networks, and some home routers enable **AP Isolation / Client Isolation / Wireless Isolation**.
+- When client isolation is enabled, the router intentionally drops direct packets between Wi-Fi clients, which prevents both LAN device discovery and phone-to-laptop agent connections.
+- Use your main trusted home/office Wi-Fi network (not Guest Wi-Fi) and verify client isolation is disabled if you control the router.
+
+---
+
+## Agent REST API Reference (v2.0.0)
+
+| Endpoint | Method | Auth in LAN Mode | Description |
+|----------|--------|------------------|-------------|
+| `/` | `GET` | Optional (minimal info if unauth) | Health check, version, mode, local IP/CIDR/gateway (when authenticated) |
+| `/network` | `GET` | **Required** | Detected local IPv4, subnet CIDR, netmask, interface name, default gateway |
+| `/scan` | `GET` | **Required** | ARP + ICMP sweep of detected local RFC-1918 subnet, measured RTT, scan diff |
+| `/devices` | `GET` | **Required** | Last cached online & offline devices and recent scan diff |
+| `/inspect?ip=<ipv4>&ports=1` | `GET` | **Required** | Live 3-probe ICMP reachability + min/avg/max RTT, fresh ARP/DNS, limited common TCP port check, full device history |
+| `/history` | `GET` | **Required** | Persistent device appearance/disappearance history across scans |
+
+Authentication headers accepted: `Authorization: Bearer <token>` or `X-Netwatch-Token: <token>`.
+
+---
+
+## Security & Scope Boundaries
+
+- **Localhost default:** `node agent.js` binds strictly to `127.0.0.1:7779`.
+- **No unauthenticated LAN mode:** `--lan` always generates a 192-bit cryptographically random token (or requires a user-supplied `--token` of ≥ 16 chars) and compares tokens using constant-time `crypto.timingSafeEqual`.
+- **Strict subnet enforcement:** Both incoming LAN client IPs and `/inspect` target IPs are validated against the host's detected local RFC-1918 subnet. External/internet IPs are rejected with `403 Forbidden`.
+- **Safe diagnostics only:** `/inspect` checks only a fixed allowlist of 12 common local service ports (`22, 53, 80, 443, 445, 548, 554, 3389, 5000, 8080, 8443, 9100`) via plain TCP connect with a 600 ms timeout. No credential guessing, no exploitation, no packet capture.
+- **No hardcoded tokens:** The frontend never embeds access tokens. Tokens are stored in `sessionStorage` by default (cleared when closing the tab), or `localStorage` only if explicitly opted in.
+- **Vercel compatibility:** Deploying the static frontend to Vercel continues to work cleanly. The local agent is never exposed through Vercel; when unreachable, NETWATCH clearly displays that local discovery requires the companion agent and never fabricates devices.
+
+---
+
+## Information That Cannot Reliably Be Retrieved
+
+NETWATCH is strictly transparent about local-network telemetry limits:
+- **Exact OS & hardware model:** Cannot be reliably determined without invasive fingerprinting or authenticated access; NETWATCH never fabricates OS or device model claims.
+- **Device type (phone / laptop / IoT):** Estimated from MAC OUI vendor or hostname and explicitly labeled `ESTIMATED` (except for the host running the agent and the OS-confirmed default gateway, which are labeled `CONFIRMED`).
+- **Randomized / Private MAC addresses:** Modern iOS, Android, and Windows devices rotate locally-administered MAC addresses on Wi-Fi; OUI lookup reports `Unknown (Randomized / Private MAC)` instead of guessing a manufacturer.
+- **Unmapped OUI vendors:** The zero-dependency agent includes a curated table of common OUI prefixes; unrecognized prefixes are honestly labeled `Unknown`.
+- **Silent / firewalled devices:** Devices configured to drop ICMP echo requests and not present in the host's ARP cache (or isolated by AP isolation) may not appear during discovery.
+- **Filtered ports:** A closed or firewall-filtered TCP port cannot be distinguished from an unused port; NETWATCH only displays confirmed open TCP ports.

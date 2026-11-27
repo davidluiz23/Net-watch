@@ -3,6 +3,8 @@
  */
 
 const SETTINGS_KEY = 'netwatch.settings.v1';
+const AGENT_TOKEN_SESSION_KEY = 'netwatch.agent.token.session';
+const AGENT_TOKEN_LOCAL_KEY = 'netwatch.agent.token.local';
 
 export const DEFAULT_ENDPOINTS = [
   {
@@ -55,6 +57,11 @@ export const DEFAULT_SETTINGS = {
   connectionLabel: '',
   selectedRegions: ['north-america', 'europe'],
   scoreAlertThreshold: 70,
+  agent: {
+    host: '127.0.0.1',
+    port: 7779,
+    rememberToken: false
+  },
   endpoints: DEFAULT_ENDPOINTS,
   widgets: DEFAULT_WIDGETS.reduce((acc, w) => {
     acc[w.id] = w.visible;
@@ -77,6 +84,37 @@ export const DEFAULT_SETTINGS = {
   }
 };
 
+export function loadAgentToken(rememberToken = false) {
+  try {
+    const sessionVal = sessionStorage.getItem(AGENT_TOKEN_SESSION_KEY);
+    if (sessionVal) return sessionVal;
+    if (rememberToken) {
+      return localStorage.getItem(AGENT_TOKEN_LOCAL_KEY) || '';
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveAgentToken(token, rememberToken = false) {
+  const clean = typeof token === 'string' ? token.trim() : '';
+  try {
+    if (clean) {
+      sessionStorage.setItem(AGENT_TOKEN_SESSION_KEY, clean);
+    } else {
+      sessionStorage.removeItem(AGENT_TOKEN_SESSION_KEY);
+    }
+    if (rememberToken && clean) {
+      localStorage.setItem(AGENT_TOKEN_LOCAL_KEY, clean);
+    } else {
+      localStorage.removeItem(AGENT_TOKEN_LOCAL_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -85,6 +123,7 @@ export function loadSettings() {
     return {
       ...structuredClone(DEFAULT_SETTINGS),
       ...parsed,
+      agent: { ...DEFAULT_SETTINGS.agent, ...(parsed.agent || {}) },
       alerts: { ...DEFAULT_SETTINGS.alerts, ...(parsed.alerts || {}) },
       speedTest: { ...DEFAULT_SETTINGS.speedTest, ...(parsed.speedTest || {}) },
       widgets: { ...DEFAULT_SETTINGS.widgets, ...(parsed.widgets || {}) },
@@ -108,5 +147,6 @@ export function saveSettings(settings) {
 export function resetSettings() {
   const fresh = structuredClone(DEFAULT_SETTINGS);
   saveSettings(fresh);
+  saveAgentToken('', false);
   return fresh;
 }

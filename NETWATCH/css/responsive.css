@@ -73,6 +73,19 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+
+  .detail-grid,
+  .agent-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header {
+    flex-wrap: wrap;
+  }
+
+  .panel-actions {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 520px) {
